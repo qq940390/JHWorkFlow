@@ -1,0 +1,9 @@
+.contextMenu{box-shadow: 1px 1px 3px 0px rgba(0,0,0,0.3);background: #fff;border: 1px solid #999;min-width: 100px;margin: 0;padding: 1px;list-style: none;}
+.contextMenu li{position: relative;margin: 0;color:#000;display: block;cursor: default;padding: 5px 15px;border: 1px solid #fff;}
+.contextMenu li:hover{border: 1px solid #A9CEDD;background-color: #A9CEDD;}
+.contextMenu li .submenu{position: absolute;top: 0;display: none;background-color: #fff;left:100%;padding: 1px;border: 1px solid #999;
+    margin-left: 0px;margin-top: -2px;box-shadow: 1px 1px 3px 0px rgba(0,0,0,0.3);}
+.contextMenu li.has-sub:before{width:0;height:0;line-height:0;border:4px solid #000; border-color:transparent transparent transparent #333;
+    border-style:solid dashed dashed dashed;position: absolute;right:2px;top: 12px;content: "";}
+.contextMenu li .submenu li{display: block;white-space: nowrap;min-width: 100px;white-space: nowrap;}
+.contextMenu li:hover > .submenu{display: block;}
