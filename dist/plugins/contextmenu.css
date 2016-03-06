@@ -1,5 +1,6 @@
 .contextMenu{box-shadow: 1px 1px 3px 0px rgba(0,0,0,0.3);background: #fff;border: 1px solid #999;min-width: 100px;margin: 0;padding: 1px;list-style: none;}
 .contextMenu li{position: relative;margin: 0;color:#000;display: block;cursor: default;padding: 5px 15px;border: 1px solid #fff;}
+.contextMenu li.br{height: 0;border-bottom: 1px solid #ccc;padding:0;margin: 2px 0;}
 .contextMenu li:hover{border: 1px solid #A9CEDD;background-color: #A9CEDD;}
 .contextMenu li .submenu{position: absolute;top: 0;display: none;background-color: #fff;left:100%;padding: 1px;border: 1px solid #999;
     margin-left: 0px;margin-top: -2px;box-shadow: 1px 1px 3px 0px rgba(0,0,0,0.3);}
