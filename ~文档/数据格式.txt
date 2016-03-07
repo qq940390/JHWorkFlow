@@ -1,0 +1,35 @@
+保存和导出的数据格式均为 json 格式
+总体结构如下：
+{
+    name: "process name",   //流程名
+    nodes: {},              //节点集合
+    lines: {},              //连接线集合
+    areas: {},              //区域分组集合
+}
+
+其中 nodes 集合单个 json 格式如下：
+node = {
+    id: "",         //节点ID
+    type: "",       //节点类型
+    label: "",      //节点描述
+    left: 0,
+    top: 0,
+    width: 0,
+    height: 0
+}
+
+line = {
+    label: "",      //连接线描述
+    from: "",       //来自哪个节点
+    to: ""         //到哪个节点    
+}
+
+area = {
+    id: "",         //分组ID
+    color: "",       //分组颜色
+    label: "",      //分组描述
+    left: 0,
+    top: 0,
+    width: 0,
+    height: 0
+}
