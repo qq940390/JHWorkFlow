@@ -7,7 +7,7 @@
     <link rel="stylesheet" type="text/css" href="./dist/bootstrap/css/bootstrap.min.css" />
     <link rel="stylesheet" type="text/css" href="./dist/bootstrap/css/bootstrap-theme.min.css" />
     <link rel="stylesheet" type="text/css" href="./dist/plugins/contextmenu.css" />
-    <link rel="stylesheet" type="text/css" href="./dist/css/defaultstyle.css"/>
+    <link rel="stylesheet" type="text/css" href="./src/css/defaultstyle.css"/>
     <title>流程图</title>
     <meta name="keywords" content="" />
     <meta name="description" content=" " />
@@ -65,7 +65,7 @@
     <script src="./dist/jsPlumb-2.0.6.js"></script>
     <script src="./dist/plugins/jquery.contextmenu.r2.js"></script>
     <script src="./dist/plugins/layer.js"></script>
-    <script src="./dist/workflow.js"></script>
+    <script src="./src/workflow.js"></script>
     <script>
         
         var workAreaMenuJson = {
