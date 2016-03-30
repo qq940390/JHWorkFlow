@@ -65,7 +65,7 @@
     <script src="./dist/jsPlumb-2.0.6.js"></script>
     <script src="./dist/plugins/jquery.contextmenu.r2.js"></script>
     <script src="./dist/plugins/layer.js"></script>
-    <script src="./src/workflow.js"></script>
+    <script src="./src/jhworkflow.js"></script>
     <script>
         
         var workAreaMenuJson = {
