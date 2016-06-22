@@ -1,4 +1,4 @@
 #JHWorkFlow
 JHWorkFlow 工作流JS类<br/>
 <br/>
-文档尚未完善
+使用方法、参数文档详见： [http://wujinhai.cn/content-5.html](http://wujinhai.cn/content-5.html)
