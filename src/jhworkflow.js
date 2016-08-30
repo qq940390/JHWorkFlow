@@ -16,18 +16,19 @@
 
     JHWorkFlow = {
         //对象初始化函数
-        createInstance: function(frameSelector, _cfg) {
+        createInstance: function(toolkitSelector, _cfg) {
             var config = {
                 processName: 'process',   //流程名，英文数组组合，默认为 process
                 width: 980,         //流程图实例宽度
                 height: 600,        //流程图示例高度
+                workAreaRatio: 3,   //工作区比例，默认3
                 haveHead: true,     //是否显示头部
                 headLabel: '新建流程',  //流程图名称
                 haveTool: true,     //是否显示工具栏
                 haveGroup: true,    //是否启用分组功能
                 rollback: true,     //是否开启回滚操作
-                headBtns: ["new", "open", "save", "undo", "redo", "reload"], //如果 haveHead = true ，则定义HEAD区的按钮，小写
-                headBtnsTitle: {new: "新建流程图", open: "打开流程图", save: "保存", undo: "撤销操作", redo: "重做操作", reload: "重新加载流程图"},
+                headBtns: ["new", "open", "save", "undo", "redo", "reload", "align_top", "align_bottom", "align_left", "align_right", "horizontal_center", "vertical_center", "leftrightclose", "topbottomclose", "samewidth", "sameheight", "horizontal_samespace", "vertical_samespace"], //如果 haveHead = true ，则定义HEAD区的按钮，小写
+                headBtnsTitle: {new: "新建流程图", open: "打开流程图", save: "保存", undo: "撤销", redo: "还原", reload: "重新加载流程图", _split_: "", align_top: "上对齐", align_right: "右对齐", align_bottom: "下对齐", align_left: "左对齐", horizontal_center: "水平居中", vertical_center: "垂直居中", leftrightclose: "左右靠拢", topbottomclose: "上下靠拢", samewidth: "同宽", sameheight: "同高", horizontal_samespace: "水平等间距", vertical_samespace: "垂直等间距"},
                 toolBtns: ["start", "end", "node"], //小写
                 toolBtnsTitle: {cursor: "选择指针", start: "起始节点", end: "结束节点", node: "普通节点"},
                 color: {    //默认颜色
@@ -51,8 +52,8 @@
                 Area: {},
                 $JP: {},                //jsPlumb 的实例化对象
                 $processName: '',       //流程名
-                $placeholderId: '',     //实例化的placeholder对象ID
-                $frameDom: null,       //流程图框架dom
+                $toolkitId: '',     //实例化后的工具箱对象ID
+                $toolkitDom: null,       //流程图工具箱dom
                 $width: config.width,
                 $height: config.height,
                 $headHeight: 0,         //头部高度
@@ -62,15 +63,13 @@
                 $nowType: "cursor",     //当前要绘制的对象类型
                 $editable: false,       //工作区是否可编辑
                 $workArea: null,       //装载结点/线条/分组区域的工作区。
-                $group: null,           //仅用来装配分组区域DOM元素的容器，处于工作区中。
+                $groupArea: null,           //仅用来装配分组区域DOM元素的容器，处于工作区中。
                 $saveDom: {},           //保存按钮的dom
                 $undoDom: {},          //撤销按钮dom
                 $redoDom: {},          //重做按钮dom
                 $deletedItem: {},       //在流程图的编辑操作中被删除掉的元素ID集合,元素ID为KEY,元素类型(node,line.area)为VALUE
                 $dragDom: false,          //拖拽对象
-                $isDrawArea: false,     //是否是在画area
                 $editor: {},
-                $ghost: {},
                 $dataFilter: {
                     node: ['alt', 'marked', 'doing', 'finish'],
                     line: ['alt', 'marked'],
@@ -80,6 +79,7 @@
                 $lineType: 'Flowchart', //默认是折线
                 $lineTypes: ['Bezier', 'Straight', 'Flowchart', 'StateMachine'],
                 $isChanged: false,
+                $onInit: false,
 
 
                 ready: function(func) {
@@ -95,30 +95,32 @@
                 init: function() {
                     this.$processName = config.processName;
 
-                    this.$frameDom = $(frameSelector);
-                    this.$frameDom.addClass("jhworkflow");
-                    this.$placeholderId = this.$frameDom.attr("id");
-                    this.$frameDom.width(this.$width).height(this.$height);
+                    this.$toolkitDom = $(toolkitSelector);
+                    this.$toolkitDom.addClass("jhworkflow");
+                    this.$toolkitId = this.$toolkitDom.attr("id");
+                    this.$toolkitDom.width(this.$width).height(this.$height);
                     this.$nowType = "cursor";
 
                     if (config.haveHead) {
-                        instance.createHeader();
+                        instance.initHeader();
                         this.$headHeight = this.$head.height();
                         if (config.headBtns) {
                             instance.bindHeaderEvent();
                         }
                     }
                     if (config.haveTool) {
-                        instance.createTool();
+                        instance.initToolBar();
                         this.$toolWidth = this.$tool.width();
                         if (config.toolBtns) {
                             instance.bindToolEvent();
                         }
-                        this.$editable = true; //只有具有工具栏时可编辑
+                        instance.$editable = true; //只有具有工具栏时可编辑
                     }
                     this.$width = this.$width - this.$toolWidth;
                     this.$height = this.$height - this.$headHeight;
-                    instance.createWorkArea();
+                    instance.initWorkArea();
+                    //设置工作区的位置
+                    this.$toolkitDom.children(".work_panel").css({left: this.$toolWidth, top: this.$headHeight});
 
                     instance.$JP = jsPlumb.getInstance({
                         ConnectionOverlays: [
@@ -145,14 +147,15 @@
                             }]
                         ],
                         ReattachConnections: true,  //防止连接线丢失
-                        Container: this.$placeholderId+'_workarea'
+                        Container: this.$toolkitId+'_workarea'
                     });
 
                     if (config.haveGroup) {
                         instance.initGroup(this.$width, this.$height);
                     }
 
-                    if (this.$editable) {
+                    NodeInstance.init();
+                    if (instance.$editable) {
                         rollbackHelper.reset();
 
                         this.$undoDom = this.$head.find('.glyphicon_undo');
@@ -161,53 +164,36 @@
                         this.$undoDom.addClass('disabled');
                         this.$redoDom.addClass('disabled');
                         this.$saveDom.addClass('disabled');
-                        this.$undoDom.on('click', function(e){
-                            if($(this).hasClass('disabled')) return false;
-                            rollbackHelper.undo();
-                        });
-                        this.$redoDom.on('click', function(e){
-                            if($(this).hasClass('disabled')) return false;
-                            rollbackHelper.redo();
-                        });
+
+                        //为了结点而增加的一些集体delegate绑定
 
                         NodeInstance.bindNodeDropEvent();
 
                         LineInstance.bindLineEvent();
 
-                        //为了结点而增加的一些集体delegate绑定
-                        NodeInstance.initWorkForNode();
-
                         this.$workArea.contextMenu(config.workAreaMenu.id, {
-                            bindings: config.workAreaMenu.bindings,
-                            onContextMenu: instance.onWorkAreaContextMenu,
-                            onShowMenu: instance.onWorkAreaShowMenu
+                            onContextMenu: config.workAreaMenu.onContextMenu,
+                            bindings: config.workAreaMenu.bindings
                         });
-                    }
 
-                    //绑定回滚操作改变事件，同步改变撤销和重做按钮样式
-                    rollbackHelper.changed = function() {
-                        instance.$isChanged = true;
-                        var ulen = rollbackHelper.getUndoStackLength();
-                        var rlen = rollbackHelper.getRedoStackLength();
-                        if(ulen == 0) instance.$undoDom.addClass('disabled');
-                        else instance.$undoDom.removeClass('disabled');
-                        if(rlen == 0) instance.$redoDom.addClass('disabled');
-                        else instance.$redoDom.removeClass('disabled');
+                        //绑定回滚操作改变事件，同步改变撤销和重做按钮样式
+                        rollbackHelper.changed = function() {
+                            instance.$isChanged = true;
+                            var ulen = rollbackHelper.getUndoStackLength();
+                            var rlen = rollbackHelper.getRedoStackLength();
+                            if(ulen == 0) instance.$undoDom.addClass('disabled');
+                            else instance.$undoDom.removeClass('disabled');
+                            if(rlen == 0) instance.$redoDom.addClass('disabled');
+                            else instance.$redoDom.removeClass('disabled');
+                        }
                     }
-                },
-                //创建遮罩层对象
-                createGhost: function() {
-                    return $("<div class='rs_ghost'></div>").attr({
-                        "unselectable": "on",
-                        "onselectstart": 'return false'
-                    });
                 },
                 //创建双击后可修改文字的文本框对象
                 createTextEditor: function() {
                     return $('<textarea class="texteditor" title="完成后按Tab键或者Ctrl+Enter键确认"></textarea>');
                 },
-                //创建头部
-                createHeader: function() {
+                //创建工具箱头部
+                initHeader: function() {
                     var html = '';
                     html = '<div class="flow_header">';
                     if (config.headLabel) {
@@ -215,46 +201,101 @@
                     }
                     html += '<div class="controlbox">';
                     for (var x = 0; x < config.headBtns.length; ++x) {
-                        html += '<a href="javascript:;" class="toolbtn glyphicon_' + config.headBtns[x] + '" title="'+config.headBtnsTitle[config.headBtns[x]]+'">';
+                        html += '<a href="javascript:;" class="toolbtn glyphicon_' + config.headBtns[x] + '" data-type="' + config.headBtns[x] + '" title="'+config.headBtnsTitle[config.headBtns[x]]+'">';
                         html += '   <i/>';
                         html += '</a>';
                     }
                     html += '</div>';
                     html += '</div>';
                     this.$head = $(html);
-                    this.$frameDom.append(this.$head);
-                    this.$headHeight = this.$frameDom.find('flow_header').height();
+                    this.$toolkitDom.append(this.$head);
+                    this.$headHeight = this.$toolkitDom.find('flow_header').height();
                     this.$head[0].oncontextmenu = function(e) {
                         e.preventDefault();
                         return false;
                     }
                 },
                 bindHeaderEvent: function() {
-                    for (var x = 0; x < config.headBtns.length; ++x) {
-                        var funcType = config.headBtns[x];
-                        this.$head.find('.glyphicon_'+funcType).on('click', {type: funcType}, function(e) {
-                            if($(this).hasClass('disabled')) return false;
-                            if(e.data.type != 'undo' && e.data.type != 'redo') {
-                                eval('var func = instance.onBtn'+ucFirst(e.data.type)+'Click;');
-                                if(typeof func == 'function') func();
-                            }
-                        });
-                    }
+                    $('.flow_header .toolbtn').on('click', function(e) {
+                        var dataType = $(this).attr('data-type');
+                        if($(this).hasClass('disabled')) return false;
+                        switch(dataType) {
+                            case 'undo':
+                                rollbackHelper.undo();
+                                break;
+
+                            case 'redo':
+                                rollbackHelper.redo();
+                                break;
+
+                            case 'align_top':
+                                NodeInstance.setAlignTop(e);
+                                break;
+
+                            case 'align_right':
+                                NodeInstance.setAlignRight(e);
+                                break;
+
+                            case 'align_bottom':
+                                NodeInstance.setAlignBottom(e);
+                                break;
+
+                            case 'align_left':
+                                NodeInstance.setAlignLeft(e);
+                                break;
+
+                            case 'horizontal_center':
+                                NodeInstance.setHorizontalCenter(e);
+                                break;
+
+                            case 'vertical_center':
+                                NodeInstance.setVerticalCenter(e);
+                                break;
+
+                            case 'leftrightclose':
+                                NodeInstance.setLeftRightClose(e);
+                                break;
+
+                            case 'topbottomclose':
+                                NodeInstance.setTopBottomClose(e);
+                                break;
+
+                            case 'samewidth':
+                                NodeInstance.setSameWidth(e);
+                                break;
+
+                            case 'sameheight':
+                                NodeInstance.setSameHeight(e);
+                                break;
+
+                            case 'horizontal_samespace':
+                                NodeInstance.setHorizontalSameSpace(e);
+                                break;
+
+                            case 'vertical_samespace':
+                                NodeInstance.setVerticalSameSpace(e);
+                                break;
+
+                            default:
+                                instance.onBtnClick(dataType, e);
+                                break;
+                        }
+                    });
                 },
-                createTool: function() {
-                    this.$frameDom.append("<div class='tools_panel'><div style='height:" + (this.$height - this.$headHeight) + "px' class='controlbox'></div></div>");
-                    this.$tool = this.$frameDom.find(".tools_panel .controlbox");
+                initToolBar: function() {
+                    this.$toolkitDom.append("<div class='tools_panel'><div style='height:" + (this.$height - this.$headHeight) + "px' class='controlbox'></div></div>");
+                    this.$tool = this.$toolkitDom.find(".tools_panel .controlbox");
                     //未加代码：加入绘图工具按钮
-                    this.$tool.append("<a type='cursor' class='toolbtn glyphicon_cursor down' id='" + this.$placeholderId + "_btn_cursor' title='"+config.toolBtnsTitle["cursor"]+"'><i/></a>");
+                    this.$tool.append("<a type='cursor' class='toolbtn glyphicon_cursor down' id='" + this.$toolkitId + "_btn_cursor' title='"+config.toolBtnsTitle["cursor"]+"'><i/></a>");
                     //加入区域划分框工具开关按钮
                     if (config.haveGroup) {
-                        this.$tool.append("<a type='group' class='toolbtn glyphicon_group' id='" + this.$placeholderId + "_btn_group' title='分组划分开关，按住Ctrl，鼠标可以划出分组区域'><i/></a>");
+                        this.$tool.append("<a type='group' class='toolbtn glyphicon_group' id='" + this.$toolkitId + "_btn_group' title='分组划分开关，按住Ctrl，鼠标可以划出分组区域'><i/></a>");
                     }
                     if (config.toolBtns && config.toolBtns.length > 0) {
                         var tmp = "<span/>";
                         for (var i = 0; i < config.toolBtns.length; ++i) {
                             //加入自定义按钮
-                            tmp += "<a type='" + config.toolBtns[i] + "' id='" + this.$placeholderId + "_btn_" + config.toolBtns[i].split(" ")[0] + "' class='toolbtn allowdragbtn' title='"+config.toolBtnsTitle[config.toolBtns[i]]+"'><i class='glyphicon_" + config.toolBtns[i] + "'></i></a>";
+                            tmp += "<a type='" + config.toolBtns[i] + "' id='" + this.$toolkitId + "_btn_" + config.toolBtns[i].split(" ")[0] + "' class='toolbtn allowdragbtn' title='"+config.toolBtnsTitle[config.toolBtns[i]]+"'><i class='glyphicon_" + config.toolBtns[i] + "'></i></a>";
                         }
                         this.$tool.append(tmp);
                     }
@@ -318,89 +359,168 @@
                         }
                     });
                 },
-                createWorkArea: function() {
-                    this.$frameDom.append("<div class='work_panel' style='width:" + (this.$width-2) + "px;height:" + (this.$height - 2) + "px;'></div>");
-                    instance.$workArea = $("<div id='"+this.$placeholderId+"_workarea' class='workarea' style='width:" + this.$width * 3 + "px;height:" + this.$height * 3 + "px'></div>").attr({
+                initWorkArea: function() {
+                    this.$toolkitDom.append("<div class='work_panel scrollbar' style='width:" + (this.$width-2) + "px;height:" + (this.$height - 2) + "px;'></div>");
+                    instance.$workArea = $("<div id='"+this.$toolkitId+"_workarea' class='workarea' style='width:" + this.$width * config.workAreaRatio + "px;height:" + this.$height * config.workAreaRatio + "px'></div>").attr({
                         "unselectable": "on",
                         "onselectstart": 'return false'
                     });
-                    this.$frameDom.children(".work_panel").append(instance.$workArea);
+                    this.$toolkitDom.children(".work_panel").append(instance.$workArea);
+                    if(config.workAreaRatio == 1) {
+                        this.$toolkitDom.children(".work_panel").removeClass('scrollbar');
+                    }
+
+                    if(instance.$editable) {
+                        var nodeRegion = new regionAreaHelper();
+                        nodeRegion.init({
+                            targetDom: instance.$workArea,
+                            ghostClass: 'rs_ghost_node',
+                            onMouseDown: function(obj, e) {
+                                if (instance.$nowType != "cursor") return false;
+                            },
+                            onMouseMove: function(obj, e) {
+                                if(instance.$nowType != "cursor") return false;
+                            },
+                            onRegionDone: function(obj, e) {
+                                if(instance.$nowType != "cursor") return false;
+                                //if(!e.ctrlKey) NodeInstance.clearSelected();
+                                //判断拉选区域内的节点
+                                var x1 = obj.regionX;
+                                var x2 = x1 + obj.regionWidth;
+                                var y1 = obj.regionY;
+                                var y2 = y1 + obj.regionHeight;
+                                for(var _id in NodeInstance.$nodeData) {
+                                    var _node = instance.getItemInfo(_id, 'node');
+                                    //判断中心点是否在区域内
+                                    if((_node.left+_node.width/2 >= x1) && (_node.top+_node.height/2 >= y1) && (_node.left+_node.width/2 <= x2) && (_node.top+_node.height/2 <= y2)) {
+                                        NodeInstance.selectNode(_id);
+                                        NodeInstance.styleSetableToggle();
+                                    }
+                                }
+                            }
+                        });
+
+                        //绑定 Ctrl+A ，全选所有节点
+                        $(document).on('keydown', function(e){
+                            if (e.ctrlKey && e.which == 65){
+                                NodeInstance.selectAll();
+                                NodeInstance.styleSetableToggle();
+                                e.stopPropagation();
+                                e.preventDefault();
+                                return false;
+                            }
+                        });
+
+                        //绑定 Ctrl+S ，保存
+                        $(document).on('keydown', function(e){
+                            if (e.ctrlKey && e.which == 83){
+                                instance.$saveDom.trigger('click');
+                                e.stopPropagation();
+                                e.preventDefault();
+                                return false;
+                            }
+                        });
+
+                        //绑定 Ctrl+Z ，撤销
+                        $(document).on('keydown', function(e){
+                            if (e.ctrlKey && e.which == 90){
+                                rollbackHelper.undo();
+                                e.stopPropagation();
+                                e.preventDefault();
+                                return false;
+                            }
+                        });
+
+                        //绑定 Ctrl+Y ，重做
+                        $(document).on('keydown', function(e){
+                            if (e.ctrlKey && e.which == 89){
+                                rollbackHelper.redo();
+                                e.stopPropagation();
+                                e.preventDefault();
+                                return false;
+                            }
+                        });
+                    }
                 },
                 //初始化分组区
                 initGroup: function(width, height) {
-                    instance.$group = $("<div class='workgroup' style='width:" + width * 3 + "px;height:" + height * 3 + "px'></div>"); //存放背景区域的容器
-                    instance.$workArea.prepend(instance.$group);
-                    instance.$group.addClass('lock');
+                    instance.$groupArea = $("<div id='"+this.$toolkitId+"_workgroup' class='workgroup' style='width:" + width * config.workAreaRatio + "px;height:" + height * config.workAreaRatio + "px'></div>"); //存放背景区域的容器
+                    this.$toolkitDom.children(".work_panel").append(instance.$groupArea);
+                    instance.$groupArea.addClass('lock');
                     if (!instance.$editable) return;
 
-                    //区域划分框操作区的事件绑定
-                    instance.$group.on("mousedown", function(e) {
-                        if (e.button == 2) return false;
+                    var groupRegion = new regionAreaHelper();
+                    groupRegion.init({
+                        ctrl: true,
+                        targetDom: instance.$groupArea,
+                        ghostClass: 'rs_ghost_group',
+                        onMouseDown: function(obj, e) {
+                            if (instance.$nowType != "group") return false;
+                            if(!e.ctrlKey) return false;
+                        },
+                        onMouseMove: function(obj, e) {
+                            if(instance.$nowType != "group") return false;
+                        },
+                        onMouseUp: function(obj, e) {
+                            if(instance.$nowType != "group") return false;
+                        },
+                        onRegionDone: function(obj, e) {
+                            if(instance.$nowType != "group") return false;
+                            var color = ["red", "yellow", "blue", "green"];
+                            var areaDom = AreaInstance.addArea(instance.$processName + AreaInstance.$areaIdSeparator + (AreaInstance.$areaMaxId+1), {
+                                label: "area_" + (AreaInstance.$areaMaxId+1),
+                                left: obj.regionX,
+                                top: obj.regionY,
+                                color: color[(AreaInstance.$areaMaxId+1) % 4],
+                                width: obj.regionWidth < 120 ? 120 : obj.regionWidth,
+                                height: obj.regionHeight < 60 ? 60 : obj.regionHeight
+                            });
+                            instance.bindGroupEvent(areaDom);
+                        }
+                    });
+                },
+                bindGroupEvent: function(dom) {
+                    //绑定单击事件
+                    dom.on('click', function(e) {
                         if (instance.$nowType != "group") return;
                         e = e || window.event;
-                        if(e.ctrlKey) {
-                            instance.$isDrawArea = true;
-                            var X, Y;
-                            var m = mousePosition(e);
-                            X = m.x - $(e.target).offset().left;
-                            Y = m.y - $(e.target).offset().top;
-                            instance.$ghost = instance.createGhost();
-                            instance.$group.append(instance.$ghost);
-                            instance.$ghost.removeAttr('style').css({
-                                display: "block",
-                                width: 0 + "px",
-                                height: 0 + "px",
-                                top: Y + "px",
-                                left: X + "px"
-                            });
-                            $(document).mousemove(function(e) {
-                                if(instance.$isDrawArea) {
-                                    if (instance.$nowType != "group") return;
-                                    var X, Y;
-                                    var m = mousePosition(e);
-                                    X = m.x - instance.$ghost.offset().left;
-                                    Y = m.y - instance.$ghost.offset().top;
-                                    instance.$ghost.css({
-                                        width: X + "px",
-                                        height: Y + "px",
-                                    });
-                                }
-                            });
-                            $(document).mouseup(function(e) {
-                                $(document).off('mousemove');
-                                $(document).off('mouseup');
-                                if(instance.$isDrawArea) {
-                                    if (instance.$nowType != "group") return;
-                                    var color = ["red", "yellow", "blue", "green"];
-                                    var oldX = instance.$ghost.offset().left - $(e.target).offset().left;
-                                    var oldY = instance.$ghost.offset().top - $(e.target).offset().top;
-                                    var newWidth = instance.$ghost.outerWidth(),
-                                        newHeight = instance.$ghost.outerHeight();
-
-                                    AreaInstance.addArea(instance.$processName + AreaInstance.$areaIdSeparator + (AreaInstance.$areaMaxId+1), {
-                                        label: "area_" + (AreaInstance.$areaMaxId+1),
-                                        left: oldX,
-                                        top: oldY,
-                                        color: color[(AreaInstance.$areaMaxId+1) % 4],
-                                        width: newWidth < 120 ? 120 : newWidth,
-                                        height: newHeight < 60 ? 60 : newHeight
-                                    });
-                                    instance.$ghost.remove();
-                                    delete instance.$ghost;
-                                    instance.$isDrawArea = false;
-                                    return false;
-                                }
-                            });
+                        switch ($(e.target).attr("class")) {
+                            case "rs_close":
+                                //删除该分组区域
+                                AreaInstance.delArea(e.target.parentNode.parentNode.id);
+                                return false;
                         }
+                        switch (e.target.tagName) {
+                            case "LABEL":
+                                return false;
+                            case "I":
+                                //绑定变色功能
+                                var id = e.target.parentNode.id;
+                                switch (AreaInstance.$areaData[id].color) {
+                                    case "red":
+                                        AreaInstance.setAreaColor(id, "yellow");
+                                        break;
+                                    case "yellow":
+                                        AreaInstance.setAreaColor(id, "blue");
+                                        break;
+                                    case "blue":
+                                        AreaInstance.setAreaColor(id, "green");
+                                        break;
+                                    case "green":
+                                        AreaInstance.setAreaColor(id, "red");
+                                        break;
+                                }
+                                return false;
+                        }
+
                     });
 
                     //分组绑定修改文字说明功能
-                    instance.$group.on("dblclick", function(e) {
+                    dom.find('label').on('dblclick', function(e) {
                         if (instance.$nowType != "group") return;
                         e = e || window.event;
                         e.preventDefault();
                         e.stopPropagation();
-                        if (e.target.tagName != "LABEL") return false;
                         var oldTxt = e.target.innerHTML;
 
                         var p = e.target.parentNode;
@@ -430,57 +550,23 @@
                         });
                         return false;
                     });
-                    //绑定点击事件
-                    instance.$group.click(function(e) {
-                        if (instance.$nowType != "group") return;
-                        e = e || window.event;
-                        switch ($(e.target).attr("class")) {
-                            case "rs_close":
-                                //删除该分组区域
-                                AreaInstance.delArea(e.target.parentNode.parentNode.id);
-                                return false;
-                        }
-                        switch (e.target.tagName) {
-                            case "LABEL":
-                                return false;
-                            case "I":
-                                //绑定变色功能
-                                var id = e.target.parentNode.id;
-                                switch (AreaInstance.$areaData[id].color) {
-                                case "red":
-                                    AreaInstance.setAreaColor(id, "yellow");
-                                    break;
-                                case "yellow":
-                                    AreaInstance.setAreaColor(id, "blue");
-                                    break;
-                                case "blue":
-                                    AreaInstance.setAreaColor(id, "green");
-                                    break;
-                                case "green":
-                                    AreaInstance.setAreaColor(id, "red");
-                                    break;
-                                }
-                                return false;
-                        }
-
-                    });
                 },
                 //切换左边工具栏按钮,传参TYPE表示切换成哪种类型的按钮
                 switchToolBtn: function(type) {
                     this.$tool.find('.toolbtn').removeClass('down');
 
                     this.$nowType = type;
-                    this.$tool.children("#" + this.$placeholderId + "_btn_" + type.split(" ")[0]).addClass("down");
+                    this.$tool.children("#" + this.$toolkitId + "_btn_" + type.split(" ")[0]).addClass("down");
                     if (this.$nowType == "group") {
-                        instance.$group.removeClass('lock');
-                        NodeInstance.blurNode();
+                        instance.$groupArea.removeClass('lock');
+                        NodeInstance.clearSelected();
                         for (var areaId in AreaInstance.$areaData) {
                             $('#'+areaId).removeClass("lock").find('.sizeable').css("display", "");
                             //将分组默认设为不可拖拽
                             instance.$JP.setDraggable(areaId, true);
                         }
                     } else {
-                        instance.$group.addClass('lock');
+                        instance.$groupArea.addClass('lock');
                         for (var areaId in AreaInstance.$areaData) {
                             $('#'+areaId).addClass("lock").find('.sizeable').css("display", "none");
                             //将分组默认设为不可拖拽
@@ -508,9 +594,7 @@
                 },
                 //载入一组数据
                 loadData: function(data) {
-                    var t = instance.$editable;
-                    instance.$editable = false;
-
+                    instance.$onInit = true;
                     //设置连线类型
                     var _type = 'Flowchart';
                     if(instance.$lineTypes.inArray(data.lineType)) {
@@ -533,13 +617,13 @@
                         AreaInstance.addArea(k, data.areas[k]);
                     }
 
-                    instance.$editable = t;
                     instance.$deletedItem = {};
 
                     //将分组默认设为不可拖拽
                     for(var areaId in AreaInstance.$areaData) {
                         instance.$JP.setDraggable(areaId, false);
                     }
+                    instance.$onInit = false;
                 },
                 //导出流程图数据
                 exportData: function() {
@@ -643,18 +727,21 @@
                     instance.loadData(oldDatas);
                     instance.$JP.repaintEverything();
                 },
-                changeItemData: function(id, data, type) {
-                    instance.$isChanged = true;
+                changeItemData: function(id, data, type, noSetChange) {
+                    if(typeof noSetChange == 'undefined') instance.$isChanged = true;
                     if(type == 'node') {
                         for(var i in data) {
+                            if(typeof data[i] == 'function' || !NodeInstance.$nodeData[id]) continue;
                             NodeInstance.$nodeData[id][i] = data[i];
                         }
                     } else if(type == 'line') {
                         for(var i in data) {
+                            if(typeof data[i] == 'function' || !NodeInstance.$lineData[id]) continue;
                             LineInstance.$lineData[id][i] = data[i];
                         }
                     } else if(type == 'area') {
                         for(var i in data) {
+                            if(typeof data[i] == 'function' || !NodeInstance.$areaData[id]) continue;
                             AreaInstance.$areaData[id][i] = data[i];
                         }
                     }
@@ -672,7 +759,7 @@
                     if(!height) height = config.height;
                     var w = (width || 980);
                     var h = (height || 600);
-                    this.$frameDom.css({
+                    this.$toolkitDom.css({
                         height: h + "px",
                         width: w + "px"
                     });
@@ -684,21 +771,21 @@
                         this.$tool.css({
                             height: h - this.$headHeight + "px"
                         });
+                        w = w - this.$tool.width() - 2;
                     }
-                    w = w - this.$tool.width() - 2;
                     h = h - this.$headHeight - 2;
                     instance.$workArea.parent().css({
                         height: h + "px",
                         width: w + "px"
                     });
                     instance.$workArea.css({
-                        height: h * 3 + "px",
-                        width: w * 3 + "px"
+                        height: h * config.workAreaRatio + "px",
+                        width: w * config.workAreaRatio + "px"
                     });
-                    if (instance.$group == null) {
-                        instance.$group.css({
-                            height: h * 3 + "px",
-                            width: w * 3 + "px"
+                    if (instance.$groupArea != null) {
+                        instance.$groupArea.css({
+                            height: h * config.workAreaRatio + "px",
+                            width: w * config.workAreaRatio + "px"
                         });
                     }
                 },
@@ -715,21 +802,6 @@
                     }
                 },
 
-                //当工作区右键菜单点击时触发此函数
-                //格式 function(e)， e表示event
-                onWorkAreaContextMenu: null,
-
-                //当工作区右键菜单显示时触发此函数
-                //格式 function(e, menu)，e表示event，menu表示显示的菜单
-                onWorkAreaShowMenu: null,
-
-                //当节点右键菜单点击时触发此函数
-                //格式 function(e)， e表示event
-                onNodeContextMenu: null,
-
-                //当节点右键菜单显示时触发此函数
-                //格式 function(e, menu)，e表示event，menu表示显示的菜单
-                onNodeShowMenu: null,
 
                 //任何改变都会触发此函数
                 //格式 function ，无参
@@ -737,35 +809,35 @@
 
                 //下面绑定当结点/线/分组块的一些操作事件,这些事件可直接通过this访问对象本身
                 //当操作某个单元（结点/线/分组块）被添加时，触发的方法，返回FALSE可阻止添加事件的发生
-                //格式function(id，type, json)：id是单元的唯一标识ID,type是单元的种类,有"node","line","area"三种取值,json即addNode,addLine或addArea方法的第二个传参json.
+                //格式function(id, type, json)：id是单元的唯一标识ID,type是单元的种类,有"node","line","area"三种取值,json即addNode,addLine或addArea方法的第二个传参json.
                 onItemAdd: null,
 
                 //当操作某个单元（结点/线/分组块）被删除时，触发的方法，返回FALSE可阻止删除事件的发生
-                //格式function(id，type)：id是单元的唯一标识ID,type是单元的种类,有"node","line","area"三种取值
+                //格式function(id, type)：id是单元的唯一标识ID,type是单元的种类,有"node","line","area"三种取值
                 onItemDel: null,
 
                 //当操作某个单元（结点/分组块）被移动时，触发的方法，返回FALSE可阻止移动事件的发生
-                //格式function(id，type,left,top)：id是单元的唯一标识ID,type是单元的种类,有"node","area"两种取值，线line不支持移动,left是新的左边距坐标，top是新的顶边距坐标
+                //格式function(id, type, left, top)：id是单元的唯一标识ID,type是单元的种类,有"node","area"两种取值，线line不支持移动,left是新的左边距坐标，top是新的顶边距坐标
                 onItemMove: null,
 
                 //当操作某个单元（结点/线/分组块）被重命名时，触发的方法，返回FALSE可阻止重命名事件的发生
-                //格式function(id,label,type)：id是单元的唯一标识ID,type是单元的种类,有"node","line","area"三种取值,label是新的名称
+                //格式function(id, label, type)：id是单元的唯一标识ID,type是单元的种类,有"node","line","area"三种取值,label是新的名称
                 onItemRename: null,
 
                 //当操作某个单元（结点/线）被由不选中变成选中时，触发的方法，返回FALSE可阻止选中事件的发生
-                //格式function(id,type)：id是单元的唯一标识ID,type是单元的种类,有"node","line"两种取值,"area"不支持被选中
-                onItemFocus: null,
+                //格式function(id, type, selected)：id是单元的唯一标识ID,type是单元的种类,有"node","line"两种取值,"area"不支持被选中,selected返回选中状态
+                onItemSelect: null,
 
                 //当操作某个单元（结点/线）被由选中变成不选中时，触发的方法，返回FALSE可阻止取消选中事件的发生
-                //格式function(id，type)：id是单元的唯一标识ID,type是单元的种类,有"node","line"两种取值,"area"不支持被取消选中
+                //格式function(id, type)：id是单元的唯一标识ID,type是单元的种类,有"node","line"两种取值,"area"不支持被取消选中
                 onItemBlur: null,
 
                 //当操作某个单元（结点/分组块）被重定义大小或造型时，触发的方法，返回FALSE可阻止重定大小/造型事件的发生
-                //格式function(id，type,width,height)：id是单元的唯一标识ID,type是单元的种类,有"node","line","area"三种取值;width是新的宽度,height是新的高度
+                //格式function(id, type, width, height)：id是单元的唯一标识ID,type是单元的种类,有"node","line","area"三种取值;width是新的宽度,height是新的高度
                 onItemResize: null,
 
                 //当变换某条连接线的端点变更连接的结点时，触发的方法，返回FALSE可阻止重定大小/造型事件的发生
-                //格式function(id，newStart,newEnd)：id是连线单元的唯一标识ID,newStart,newEnd分别是起始结点的ID和到达结点的ID
+                //格式function(id, newStart, newEnd)：id是连线单元的唯一标识ID,newStart,newEnd分别是起始结点的ID和到达结点的ID
                 onLinePointMove: null,
 
                 //当节点类型改变时触发此函数
@@ -777,74 +849,46 @@
                 onLineTypeChanged: null,
 
                 //用户事件
-                onBtnNewClick: null,    //点击新建按钮时
-                onBtnOpenClick: null,   //点击打开按钮时
-                onBtnSaveClick: null,   //点击保存按钮时
-                onBtnReloadClick: null     //点击重新加载按钮时
+                //格式 function(type, e)：type为按钮的类型，e为事件
+                onBtnClick: null
             }
 
             var NodeInstance = {
                 $nodeData: {},
                 $nodeCount: 0,
                 $nodeMaxId: 0,
-                $focus: "",     //当前被选定的结点,如果没选中或者工作区被清空,则为""
+                $selected:[],     //已被选定的结点集合,如果没选中或者工作区被清空,则为[]
+                $selectMove: false, //是否同步移动中
                 $nodeIdSeparator: '_node_',
-                $initNodeWidth: 120,
-                $initNodeHeight: 32,
+                $initNodeWidth: 180,
+                $initNodeHeight: 60,
+                $dragStartPos: [],  //开始拖动某个节点时的初始坐标，0:X ,1:Y
+                $draging : false,   //节点拖动标识
 
-                //绑定节点的拖拽创建事件
-                bindNodeDropEvent: function() {
-                    //拖放事件  需要重新调整
-                    instance.$workArea.on('dragover', function(e){
-                        e.preventDefault();
-                    });
-                    instance.$workArea.on('dragenter', function(e){
-                        return true;
-                    });
-                    instance.$workArea.get(0).ondrop = function(e){
-                        e.preventDefault();
-                        if(!instance.$dragDom) {
-                            e.stopPropagation();
-                            return false;
+                init: function() {
+                    instance.$workArea.on('mouseup', function(e) {
+                        if (e.button == 2) return false;
+                        if (!instance.$editable) return false;
+                        var $target = $(e.target);
+                        var _id = $target.attr('id');
+                        if($target.hasClass('nodebody')) {
+                            _id = $target.parent().attr('id');
                         }
-                        var _type = e.dataTransfer.getData("Text");
-                        //拖放结束时，创建节点
-                        var X, Y;
-                        var ev = mousePosition(e),
-                        t = getElCoordinate(this);
-                        X = ev.x - t.left + this.parentNode.scrollLeft - NodeInstance.$initNodeWidth/2;
-                        Y = ev.y - t.top + this.parentNode.scrollTop - NodeInstance.$initNodeHeight/2;
-                        var initLabel = "node_" + (NodeInstance.$nodeMaxId+1);
-                        if(_type == 'start') initLabel = '流程开始';
-                        else if(_type == 'end') initLabel = '流程结束';
-                        var res = NodeInstance.addNode(instance.$processName + NodeInstance.$nodeIdSeparator + (NodeInstance.$nodeMaxId+1), {
-                            label: initLabel,
-                            left: X,
-                            top: Y,
-                            width:NodeInstance.$initNodeWidth,
-                            height:NodeInstance.$initNodeHeight,
-                            type: _type
-                        });
-                        e.stopPropagation();
-                        return false;
-                    }
-                },
-                initWorkForNode: function() {
-                    //绑定点击事件
-                    instance.$workArea.on('click', function(e) {
-                        NodeInstance.blurNode();
+                        if($target.hasClass('rs_ghost_node') || $target.hasClass('workarea')) {
+                            NodeInstance.clearSelected();
+                        } else if($target.hasClass('nodebody') || $target.hasClass('node_item')) {
+                            if(e.ctrlKey) {
+                                NodeInstance.toggleSelectNode(_id);
+                            } else if(NodeInstance.$draging == false) {
+                                NodeInstance.clearSelected();
+                                NodeInstance.toggleSelectNode(_id);
+                            }
+                        }
                     });
-                    instance.$workArea.on('click', '.node_item', function(e) {
-                        NodeInstance.focusNode(e.currentTarget.id, true);
-                        e.preventDefault();
-                        e.stopPropagation();
-                        return false;
-                    });
-
                     if (!instance.$editable) return;
 
                     //双击节点中的文字区域时的事件
-                    instance.$workArea.on('dblclick', ".nodebody", function(e) {
+                    instance.$workArea.on('dblclick', ".node_item .nodebody", function(e) {
                         var oldTxt = this.innerHTML;
                         var p = e.target.parentNode;
                         instance.$editor = instance.createTextEditor();
@@ -878,10 +922,49 @@
                     instance.$workArea.on('click', ".node_item .rs_close", function(e) {
                         if (!e) e = window.event;
                         if(!confirm('是否删除该节点？')) return false;
-                        NodeInstance.delNode(NodeInstance.$focus);
+                        //NodeInstance.delNode(NodeInstance.$focus);
                         return false;
                     });
 
+                    NodeInstance.styleSetableToggle(true);
+                },
+                //绑定节点的拖拽创建事件
+                bindNodeDropEvent: function() {
+                    //拖放事件  需要重新调整
+                    instance.$workArea.on('dragover', function(e){
+                        e.preventDefault();
+                    });
+                    instance.$workArea.on('dragenter', function(e){
+                        return true;
+                    });
+                    instance.$workArea.get(0).ondrop = function(e){
+                        e.preventDefault();
+                        if(!instance.$dragDom) {
+                            e.stopPropagation();
+                            return false;
+                        }
+                        var _type = e.dataTransfer.getData("Text");
+                        //拖放结束时，创建节点
+                        var X, Y;
+                        var ev = mousePosition(e),
+                        t = getElCoordinate(this);
+                        X = ev.x - t.left + this.parentNode.scrollLeft - NodeInstance.$initNodeWidth/2;
+                        Y = ev.y - t.top + this.parentNode.scrollTop - NodeInstance.$initNodeHeight/2;
+                        var initLabel = "node_" + (NodeInstance.$nodeMaxId+1);
+                        if(_type == 'start') initLabel = '流程开始';
+                        else if(_type == 'end') initLabel = '流程结束';
+                        var res = NodeInstance.addNode(instance.$processName + NodeInstance.$nodeIdSeparator + (NodeInstance.$nodeMaxId+1), {
+                            label: initLabel,
+                            left: X,
+                            top: Y,
+                            width:NodeInstance.$initNodeWidth,
+                            height:NodeInstance.$initNodeHeight,
+                            type: _type,
+                            nid: 0
+                        });
+                        e.stopPropagation();
+                        return false;
+                    }
                 },
                 //创建node html
                 createNode: function(id, json) {
@@ -890,8 +973,8 @@
                     var finish = json.finish ? " item_finish" : "";
 
                     var initLabel = json.label;
-                    if(json.type == 'start') initLabel = '流程开始';
-                    else if(json.type == 'end') initLabel = '流程结束';
+                    if(json.type == 'start' && !json.label) initLabel = '流程开始Z';
+                    else if(json.type == 'end' && !json.label) initLabel = '流程结束Z';
 
                     var extenClass = '';
                     if(json.type == 'start') extenClass = ' btn-success';
@@ -907,14 +990,15 @@
                 //增加一个流程结点,传参为一个JSON,有id,label,top,left,width,height,type(结点类型)等属性
                 addNode: function(id, json) {
                     if (typeof instance.onItemAdd == 'function' && !instance.onItemAdd(id, "node", json)) return;
-                    instance.$editable && instance.dataChanged();
-                    if (instance.$editable && config.rollback) {
+                    instance.$editable && !instance.$onInit && instance.dataChanged();
+                    if (instance.$editable && instance.$onInit == false && config.rollback) {
                         rollbackHelper.pushOper("NodeInstance.delNode", [id]);
                     }
                     if (!json.width || json.width < 90) json.width = 90;
                     if (!json.height || json.height < 32) json.height = 32;
                     if (!json.top || json.top < 0) json.top = 0;
                     if (!json.left || json.left < 0) json.left = 0;
+                    if (!json.nid) json.nid = 0;
 
                     //一个流程中，只能有一个起始节点和结束节点
                     for(var i in NodeInstance.$nodeData) {
@@ -934,20 +1018,52 @@
                     instance.$JP.getContainer().appendChild(newNode[0]);
                     var el = newNode[0];
 
-                    //绑定尺寸改变，完成时更新对应分组dom
-                    sizeableMe(el, instance.$workArea[0], function(info) {
-                        NodeInstance.resizeNode(id, info.width, info.height);
-                    }, {fix:0, minWidth: 90, minHeight:32});
+                    if (instance.$editable) {
+                        //绑定尺寸改变，完成时更新对应分组dom
+                        sizeableMe(el, instance.$workArea[0], function(info) {
+                            NodeInstance.resizeNode(id, info.width, info.height);
+                        }, {fix:0, minWidth: 90, minHeight:32});
 
-                    // initialise draggable elements.
-                    instance.$JP.draggable(el, {
-                        containment:"parent",
-                        stop: function(info) {
-                            //拖放结束时，同步更改节点位置信息
-                            NodeInstance.moveNode(info.el.id, info.pos[0], info.pos[1]);
-                        },
-                        filter: ".glyphicon, .rs_bottom, .rs_right, .rs_rb, .rs_close"
-                    });
+                        // initialise draggable elements.
+                        instance.$JP.draggable(el, {
+                            containment:"parent",
+                            beforeStart: function(info) {
+                                NodeInstance.$draging = false;
+                                if(!info.e.ctrlKey && !NodeInstance.isSelected(info.el.id)) {
+                                    NodeInstance.clearSelected();
+                                }
+                            },
+                            start: function(info) {
+                                NodeInstance.$draging = false;
+                                var _node = instance.getItemInfo(info.el.id, 'node');
+                                NodeInstance.$dragStartPos = [_node.left, _node.top];
+                            },
+                            drag: function(info) {
+                                NodeInstance.$draging = true;
+                                var movedX = 0;
+                                var movedY = 0;
+                                movedX = info.pos[0] - NodeInstance.$dragStartPos[0];
+                                movedY = info.pos[1] - NodeInstance.$dragStartPos[1];
+                                NodeInstance.moveSelectNode(movedX, movedY);
+                            },
+                            stop: function(info) {
+                                //拖放结束时，同步更改节点位置信息
+                                if(NodeInstance.$selected.length <= 1) {
+                                    NodeInstance.moveNode(info.el.id, info.pos[0], info.pos[1]);
+                                } else {
+                                    var movedX = 0;
+                                    var movedY = 0;
+                                    movedX = info.pos[0] - NodeInstance.$dragStartPos[0];
+                                    movedY = info.pos[1] - NodeInstance.$dragStartPos[1];
+                                    NodeInstance.moveSelectNode(movedX, movedY, true);
+                                    NodeInstance.$selectMove = false;
+                                }
+                                NodeInstance.$draging = false;
+                            },
+                            filter: ".glyphicon, .rs_bottom, .rs_right, .rs_rb, .rs_close"
+                        });
+                    }
+
                     //当节点类型为 end 最终节点时，不允许作为源节点
                     if(json.type != 'end') {
                         var sourceDom = instance.$JP.makeSource(id, {
@@ -1041,53 +1157,75 @@
 
                     if (instance.$editable) {
                         if (instance.$deletedItem[id]) delete instance.$deletedItem[id]; //在回退删除操作时,去掉该元素的删除记录
-                    }
 
-                    newNode.contextMenu(config.nodeMenu.id, {
-                        bindings: config.nodeMenu.bindings,
-                        onContextMenu: instance.onNodeContextMenu,
-                        onShowMenu: instance.onNodeShowMenu
-                    });
+                        newNode.contextMenu(config.nodeMenu.id, {
+                            onContextMenu: config.nodeMenu.onContextMenu,
+                            bindings: config.nodeMenu.bindings
+                        });
+                    }
                 },
-                //移动结点到一个新的位置
+                //移动单个结点到一个新的位置
                 moveNode: function(id, left, top) {
                     if (!NodeInstance.$nodeData[id]) return;
+                    //如果没有改变，则返回
+                    if(left == NodeInstance.$nodeData[id].left && top == NodeInstance.$nodeData[id].top) return;
+                    if(left === false && top == NodeInstance.$nodeData[id].top) return;
+                    if(top === false && left == NodeInstance.$nodeData[id].left) return;
                     if (typeof instance.onItemMove == 'function' && !instance.onItemMove(id, "node", left, top)) return;
-                    instance.$editable && instance.dataChanged();
+                    instance.$editable && !instance.$onInit && instance.dataChanged();
 
                     if (instance.$editable && config.rollback) {
                         var paras = [id, NodeInstance.$nodeData[id].left, NodeInstance.$nodeData[id].top];
                         rollbackHelper.pushOper("NodeInstance.moveNode", paras);
                     }
-                    if (left < 0) left = 0;
-                    if (top < 0) top = 0;
-                    $("#" + id).css({
-                        left: left + "px",
-                        top: top + "px"
-                    });
-                    NodeInstance.$nodeData[id].left = left;
-                    NodeInstance.$nodeData[id].top = top;
+                    if (left !== false && left < 0) left = 0;
+                    if (top !== false && top < 0) top = 0;
+                    if(left !== false) $("#" + id).css({left: left + "px"});
+                    if(top !== false) $("#" + id).css({top: top + "px"});
+                    if(left !== false) NodeInstance.$nodeData[id].left = left;
+                    if(top !== false) NodeInstance.$nodeData[id].top = top;
                     if (instance.$editable) {
                         NodeInstance.$nodeData[id].alt = 1;
                     }
                     instance.$JP.revalidate(id);
                 },
+                //同步移动所选的节点
+                moveSelectNode: function(stepX, stepY, updateNode) {
+                    if(!NodeInstance.$selected || NodeInstance.$selected.length == 0) return false;
+                    NodeInstance.$selectMove = true;
+                    for(var i in NodeInstance.$selected) {
+                        var _id = NodeInstance.$selected[i];
+                        var _node = instance.getItemInfo(_id, 'node');
+                        var _left = _node.left + stepX;
+                        var _top = _node.top + stepY;
+                        $("#" + _id).css({
+                            left: _left + "px",
+                            top: _top + "px"
+                        });
+                        if(updateNode == true) {
+                            NodeInstance.moveNode(_id, _left, _top);
+                        }
+                        instance.$JP.revalidate(_id);
+                    }
+                },
                 //设置结点的尺寸
                 resizeNode: function(id, width, height) {
                     if (!NodeInstance.$nodeData[id]) return;
+                    //如果没有改变，则返回
+                    if(width == NodeInstance.$nodeData[id].width && height == NodeInstance.$nodeData[id].height) return;
+                    if(width === false && height == NodeInstance.$nodeData[id].height) return;
+                    if(height === false && width == NodeInstance.$nodeData[id].width) return;
                     if (typeof instance.onItemResize == 'function' && !instance.onItemResize(id, "node", width, height)) return;
-                    instance.$editable && instance.dataChanged();
+                    instance.$editable && !instance.$onInit && instance.dataChanged();
 
                     if (instance.$editable && config.rollback) {
                         var paras = [id, NodeInstance.$nodeData[id].width, NodeInstance.$nodeData[id].height];
                         rollbackHelper.pushOper("NodeInstance.resizeNode", paras);
                     }
-                    $('#'+id).css({
-                        width: width + "px",
-                        height: height + "px"
-                    });
-                    NodeInstance.$nodeData[id].width = width;
-                    NodeInstance.$nodeData[id].height = height;
+                    if(width !== false) $('#'+id).css({width: width + "px"});
+                    if(height !== false) $('#'+id).css({height: height + "px"});
+                    if(width !== false) NodeInstance.$nodeData[id].width = width;
+                    if(height !== false) NodeInstance.$nodeData[id].height = height;
                     if (instance.$editable) {
                         NodeInstance.$nodeData[id].alt = 1;
                     }
@@ -1097,15 +1235,21 @@
                 delNode: function(id) {
                     if (!NodeInstance.$nodeData[id]) return;
                     if (typeof instance.onItemDel == 'function' && !instance.onItemDel(id, 'node')) return;
-                    instance.$editable && instance.dataChanged();
+                    instance.$editable && !instance.$onInit && instance.dataChanged();
 
                     var allLines = instance.$JP.getAllConnections();
                     //先删除相关的连线
+                    var deletedLines = [];
                     for (var k in allLines) {
-                        if(!allLines[k].source || !allLines[k].target) continue;
-                        if (allLines[k].source.id == id || allLines[k].target.id == id) {
-                            LineInstance.delLine(LineInstance.createLineId(allLines[k].source.id, allLines[k].target.id), allLines[k]);
+                        if(typeof allLines[k] != 'object') continue;
+                        var formNode = allLines[k].source.id;
+                        var toNode = allLines[k].target.id;
+                        if(formNode == id || toNode == id) {
+                            deletedLines.push(LineInstance.createLineId(formNode, toNode));
                         }
+                    }
+                    for(var i in deletedLines) {
+                        LineInstance.delLine(deletedLines[i]);
                     }
                     //再删除结点本身
                     if (instance.$editable && config.rollback) {
@@ -1119,7 +1263,7 @@
 
                     delete NodeInstance.$nodeData[id];
                     NodeInstance.$nodeCount--;
-                    if (NodeInstance.$focus == id) NodeInstance.$focus = "";
+                    //if (NodeInstance.$focus == id) NodeInstance.$focus = "";
 
                     if (instance.$editable) {
                         instance.$deletedItem[id] = "node";
@@ -1127,23 +1271,90 @@
                     instance.$JP.repaintEverything();
                 },
                 //取消所有结点/连线被选定的状态
-                blurNode: function() {
-                    if (NodeInstance.$focus != "") {
-                        var jq = $("#" + NodeInstance.$focus);
-                        if (typeof instance.onItemBlur == 'function' && !instance.onItemBlur(NodeInstance.$focus, "node")) return false;
-                        jq.removeClass("item_focus").removeClass("crosshair").find('.sizeable').hide();
+                clearSelected: function() {
+                    if (NodeInstance.$selected && NodeInstance.$selected.length > 0) {
+                        for(var i in NodeInstance.$selected) {
+                            var _id = NodeInstance.$selected[i];
+                            if(typeof _id == 'function') continue;
+                            var jq = $("#" + _id);
+                            if (typeof instance.onItemBlur == 'function' && !instance.onItemBlur(_id, "node")) return false;
+                            jq.removeClass("item_selected").find('.sizeable').hide();
+                        }
                     }
-                    NodeInstance.$focus = "";
+                    NodeInstance.$selected = [];
+                    NodeInstance.styleSetableToggle();
                     return true;
                 },
-                //选定某个结点/转换线 bool:TRUE决定了要触发选中事件，FALSE则不触发选中事件，多用在程序内部调用。
-                focusNode: function(id, bool) {
+                //全选所有节点
+                selectAll: function(noTriggerFun) {
+                    if (!noTriggerFun && typeof instance.onItemSelect == 'function' && !instance.onItemSelect(id, "node", true)) return;
+                    instance.switchToolBtn("cursor");
+                    for(var i in NodeInstance.$nodeData) {
+                        var id = i;
+                        var jq = $("#" + id);
+                        jq.addClass("item_selected").find('.sizeable').show();
+                        var found = false;
+                        for(var i in NodeInstance.$selected) {
+                            if(id == NodeInstance.$selected[i]) {
+                                found = true;
+                                break;
+                            }
+                        }
+                        if(found == false) NodeInstance.$selected.push(id);
+                    }
+                },
+                //选定某个结点 (id:节点ID，noTriggerFun:不触发事件) noTriggerFun:TRUE不触发选中事件，FALSE则触发选中事件，多用在程序内部调用。
+                selectNode: function(id, noTriggerFun) {
                     var jq = $("#" + id);
-                    if (jq.length == 0) return;
-                    if (!NodeInstance.blurNode()) return; //先执行"取消选中",如果返回FLASE,则也会阻止选定事件继续进行.
-                    if (bool && typeof instance.onItemFocus == 'function' && !instance.onItemFocus(id, "node")) return;
-                    jq.addClass("item_focus").find('.sizeable').show();
-                    NodeInstance.$focus = id;
+                    if (!jq || jq.length == 0) return false;
+                    if (!noTriggerFun && typeof instance.onItemSelect == 'function' && !instance.onItemSelect(id, "node", true)) return;
+                    jq.addClass("item_selected").find('.sizeable').show();
+                    var found = false;
+                    for(var i in NodeInstance.$selected) {
+                        if(id == NodeInstance.$selected[i]) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if(found == false) NodeInstance.$selected.push(id);
+                    instance.switchToolBtn("cursor");
+                },
+                //返回节点是否是选择状态
+                isSelected: function(id) {
+                    var found = false;
+                    for(var i in NodeInstance.$selected) {
+                        if(id == NodeInstance.$selected[i]) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    return found;
+                },
+                //反选某个节点的选定状态
+                toggleSelectNode: function(id, noTriggerFun) {
+                    var jq = $("#" + id);
+                    if (!jq || jq.length == 0) return false;
+                    var selected = false;
+                    var found = false;
+                    var sIndex = -1;
+                    for(var i in NodeInstance.$selected) {
+                        if(id == NodeInstance.$selected[i]) {
+                            found = true;
+                            sIndex = i;
+                            break;
+                        }
+                    }
+                    if(found == false) {
+                        NodeInstance.$selected.push(id);
+                        selected = true;
+                        jq.addClass("item_selected").find('.sizeable').show();
+                    } else {
+                        NodeInstance.$selected.splice(sIndex, 1);
+                        selected = false;
+                        jq.removeClass("item_selected").find('.sizeable').hide();
+                    }
+                    NodeInstance.styleSetableToggle();
+                    if (!noTriggerFun && typeof instance.onItemSelect == 'function' && !instance.onItemSelect(id, "node", selected)) return;
                     instance.switchToolBtn("cursor");
                 },
                 //设置结点/连线/分组区域的文字信息
@@ -1152,7 +1363,7 @@
                     if (!NodeInstance.$nodeData[id]) return;
                     if (NodeInstance.$nodeData[id].label == label) return;
                     if (typeof instance.onItemRename == 'function' && !instance.onItemRename(id, label, "node")) return;
-                    instance.$editable && instance.dataChanged();
+                    instance.$editable && !instance.$onInit && instance.dataChanged();
 
                     oldLabel = NodeInstance.$nodeData[id].label;
                     NodeInstance.$nodeData[id].label = label;
@@ -1187,7 +1398,7 @@
                     if(oldType == newType) return false;
 
                     if (typeof instance.onNodeTypeChanged == 'function' && !instance.onNodeTypeChanged(id, oldType, newType)) return;
-                    instance.$editable && instance.dataChanged();
+                    instance.$editable && !instance.$onInit && instance.dataChanged();
 
                     //一个流程中只能有一个起始节点和结束节点
                     if(newType == 'start' || newType == 'end') {
@@ -1218,6 +1429,302 @@
                     }
 
                     return true;
+                },
+                update: function() {
+                    var datas = NodeInstance.$nodeData;
+                    for(var i in datas) {
+                        if(typeof datas[i] == 'object') {
+                            $('#'+i).find(".nodebody").text(datas[i].label);
+                        }
+                    }
+                },
+                //节点样式设置开关
+                styleSetableToggle: function(forceEnabled) {
+                    var selector = '.glyphicon_align_top,\
+                                    .glyphicon_align_right,\
+                                    .glyphicon_align_bottom,\
+                                    .glyphicon_align_left,\
+                                    .glyphicon_horizontal_center,\
+                                    .glyphicon_vertical_center,\
+                                    .glyphicon_leftrightclose,\
+                                    .glyphicon_topbottomclose,\
+                                    .glyphicon_samewidth,\
+                                    .glyphicon_sameheight,\
+                                    .glyphicon_horizontal_samespace,\
+                                    .glyphicon_vertical_samespace';
+                    if(!NodeInstance.$selected || NodeInstance.$selected.length <= 1 || forceEnabled === true) {
+                        $(selector).addClass('disabled');
+                    } else if(NodeInstance.$selected.length >= 2 || forceEnabled === false) {
+                        $(selector).removeClass('disabled');
+                    }
+                },
+                setAlignTop: function(e) {   //上对齐
+                    if(!NodeInstance.$selected || !NodeInstance.$selected.length) return false;
+                    var arr = NodeInstance.$selected;
+                    var iTop = 0;
+                    var id = "";
+
+                    for (var i = 0; i < arr.length; i++) {
+                        var _node = $('#'+arr[i]).get(0);
+                        var _nodeInfo = instance.getItemInfo(_node.id, 'node');
+                        if (_nodeInfo.top < iTop || iTop === 0) {
+                            id = _node.id;
+                            iTop = _nodeInfo.top;
+                        }
+                    }
+
+                    for (var j = 0; j < arr.length; j++) {
+                        var _node = $('#'+arr[j]).get(0);
+                        if (id === _node.id) continue;
+                        NodeInstance.moveNode(_node.id, false, iTop);
+                    }
+                },
+                setAlignRight: function(e) {    //右对齐
+                    if(!NodeInstance.$selected || !NodeInstance.$selected.length) return false;
+                    var arr = NodeInstance.$selected;
+                    var iLeft = 0;
+                    var id = "";
+                    var node = {};
+
+                    for (var i = 0; i < arr.length; i++) {
+                        var _node = $('#'+arr[i]).get(0);
+                        var _nodeInfo = instance.getItemInfo(_node.id, 'node');
+                        if (_nodeInfo.left - _nodeInfo.width > iLeft || iLeft === 0) {
+                            id = _node.id;
+                            node = _nodeInfo;
+                            iLeft = _nodeInfo.left;
+                        }
+                    }
+
+                    for (var j = 0; j < arr.length; j++) {
+                        var _node = $('#'+arr[j]).get(0);
+                        var _nodeInfo = instance.getItemInfo(_node.id, 'node');
+                        if (id === _node.id) continue;
+                        NodeInstance.moveNode(_node.id, iLeft + (node.width - _nodeInfo.width), false);
+                    }
+                },
+                setAlignBottom: function(e) {    //下对齐
+                    if(!NodeInstance.$selected || !NodeInstance.$selected.length) return false;
+                    var arr = NodeInstance.$selected;
+                    var iTop = 0;
+                    var id = "";
+                    var node = {};
+
+                    for (var i = 0; i < arr.length; i++) {
+                        var _node = $('#'+arr[i]).get(0);
+                        var _nodeInfo = instance.getItemInfo(_node.id, 'node');
+                        if (_nodeInfo.top - _nodeInfo.height > iTop || iTop === 0) {
+                            id = _node.id;
+                            node = _nodeInfo;
+                            iTop = _nodeInfo.top;
+                        }
+                    }
+
+                    for (var j = 0; j < arr.length; j++) {
+                        var _node = $('#'+arr[j]).get(0);
+                        var _nodeInfo = instance.getItemInfo(_node.id, 'node');
+                        if (id === _node.id) continue;
+                        NodeInstance.moveNode(_node.id, false, iTop + (node.height - _nodeInfo.height));
+                    }
+                },
+                setAlignLeft: function(e) {  //左对齐
+                    if(!NodeInstance.$selected || !NodeInstance.$selected.length) return false;
+                    var arr = NodeInstance.$selected;
+                    var iLeft = 0;
+                    var id = "";
+
+                    for (var i = 0; i < arr.length; i++) {
+                        var _node = $('#'+arr[i]).get(0);
+                        var _nodeInfo = instance.getItemInfo(_node.id, 'node');
+                        if (_nodeInfo.left < iLeft || iLeft === 0) {
+                            id = _node.id;
+                            iLeft = _nodeInfo.left;
+                        }
+                    }
+
+                    for (var j = 0; j < arr.length; j++) {
+                        var _node = $('#'+arr[j]).get(0);
+                        if (id === _node.id) continue;
+                        NodeInstance.moveNode(_node.id, iLeft, false);
+                    }
+                },
+                setHorizontalCenter: function(e) {   //水平居中
+                    if(!NodeInstance.$selected || !NodeInstance.$selected.length) return false;
+                    var arr = NodeInstance.$selected;
+                    var iTop = 0;
+                    var id = "";
+                    var node = {};
+
+                    for (var i = 0; i < arr.length; i++) {
+                        var _node = $('#'+arr[i]).get(0);
+                        var _nodeInfo = instance.getItemInfo(_node.id, 'node');
+                        if (_nodeInfo.top < iTop || iTop === 0) {
+                            id = _node.id;
+                            node = _nodeInfo;
+                            iTop = _nodeInfo.top;
+                        }
+                    }
+
+                    for (var j = 0; j < arr.length; j++) {
+                        var _node = $('#'+arr[j]).get(0);
+                        var _nodeInfo = instance.getItemInfo(_node.id, 'node');
+                        if (id === _node.id) continue;
+                        NodeInstance.moveNode(_node.id, false, iTop + (node.height/2 - _nodeInfo.height/2));
+                    }
+                },
+                setVerticalCenter: function(e) { //垂直居中
+                    if(!NodeInstance.$selected || !NodeInstance.$selected.length) return false;
+                    var arr = NodeInstance.$selected;
+                    var iLeft = 0;
+                    var id = "";
+                    var node = {};
+
+                    for (var i = 0; i < arr.length; i++) {
+                        var _node = $('#'+arr[i]).get(0);
+                        var _nodeInfo = instance.getItemInfo(_node.id, 'node');
+                        if (_nodeInfo.left < iLeft || iLeft === 0) {
+                            id = _node.id;
+                            node = _nodeInfo;
+                            iLeft = _nodeInfo.left;
+                        }
+                    }
+
+                    for (var j = 0; j < arr.length; j++) {
+                        var _node = $('#'+arr[j]).get(0);
+                        var _nodeInfo = instance.getItemInfo(_node.id, 'node');
+                        if (id === _node.id) continue;
+                        NodeInstance.moveNode(_node.id, iLeft + (node.width/2 - _nodeInfo.width/2), false);
+                    }
+                },
+                setLeftRightClose: function(e) { //左右靠拢
+                    if(!NodeInstance.$selected || !NodeInstance.$selected.length) return false;
+                    var arr = NodeInstance.$selected;
+                    var iLeft = 0;
+                    var id = 0;
+
+                    for (var i = 0; i < arr.length; i++) {
+                        var _node = $('#'+arr[i]).get(0);
+                        var _nodeInfo = instance.getItemInfo(_node.id, 'node');
+                        if(iLeft === 0) {
+                            id = _node.id;
+                            iLeft = _nodeInfo.left;
+                        } else{
+                            NodeInstance.moveNode(_node.id, iLeft, false);
+                        }
+                        iLeft += _nodeInfo.width;
+                    }
+                },
+                setTopBottomClose: function(e) { //上下靠拢
+                    if(!NodeInstance.$selected || !NodeInstance.$selected.length) return false;
+                    var arr = NodeInstance.$selected;
+                    var iTop = 0;
+                    var id = 0;
+
+                    for (var i = 0; i < arr.length; i++) {
+                        var _node = $('#'+arr[i]).get(0);
+                        var _nodeInfo = instance.getItemInfo(_node.id, 'node');
+                        if(iTop === 0) {
+                            id = _node.id;
+                            iTop = _nodeInfo.top;
+                        } else {
+                            NodeInstance.moveNode(_node.id, false, iTop);
+                        }
+                        iTop += _nodeInfo.height;
+                    }
+                },
+                setSameWidth: function(e) {  //同宽
+                    if(!NodeInstance.$selected || !NodeInstance.$selected.length) return false;
+                    var arr = NodeInstance.$selected;
+                    var iWidth = e.ctrlKey ? 99999 : 0;
+
+                    //取最宽值
+                    for (var i = 0; i < arr.length; i++) {
+                        var _node = $('#'+arr[i]).get(0);
+                        var _nodeInfo = instance.getItemInfo(_node.id, 'node');
+                        if(e.ctrlKey) {
+                            iWidth = Math.min(iWidth, _nodeInfo.width);
+                        } else {
+                            iWidth = Math.max(iWidth, _nodeInfo.width);
+                        }
+                    }
+
+                    for (var i = 0; i < arr.length; i++) {
+                        var _node = $('#'+arr[i]).get(0);
+                        var _nodeInfo = instance.getItemInfo(_node.id, 'node');
+                        NodeInstance.resizeNode(_node.id, iWidth, false);
+                    }
+                },
+                setSameHeight: function(e) { //同高
+                    if(!NodeInstance.$selected || !NodeInstance.$selected.length) return false;
+                    var arr = NodeInstance.$selected;
+                    var iHeight = e.ctrlKey ? 99999 : 0;
+
+                    //取最高值
+                    for (var i = 0; i < arr.length; i++) {
+                        var _node = $('#'+arr[i]).get(0);
+                        var _nodeInfo = instance.getItemInfo(_node.id, 'node');
+                        if(e.ctrlKey) {
+                            iHeight = Math.min(iHeight, _nodeInfo.height);
+                        } else {
+                            iHeight = Math.max(iHeight, _nodeInfo.height);
+                        }
+                    }
+
+                    for (var i = 0; i < arr.length; i++) {
+                        var _node = $('#'+arr[i]).get(0);
+                        var _nodeInfo = instance.getItemInfo(_node.id, 'node');
+                        NodeInstance.resizeNode(_node.id, false, iHeight);
+                    }
+                },
+                setHorizontalSameSpace: function(e) { //水平间距相等
+                    if(!NodeInstance.$selected || !NodeInstance.$selected.length) return false;
+                    var arr = NodeInstance.$selected;
+                    var iLeft = 0;
+                    var space = 0;
+
+                    //计算所有节点之间的平均间距
+                    for (var i = 0; i < arr.length; i++) {
+                        var _node = $('#'+arr[i]).get(0);
+                        var _nodeInfo = instance.getItemInfo(_node.id, 'node');
+                        if(i > 0) {
+                            var prevNode = instance.getItemInfo(arr[i-1], 'node');
+                            space += _nodeInfo.left - (prevNode.left+prevNode.width);
+                        }
+                    }
+                    space = space/(arr.length - 1);
+
+                    for (var i = 0; i < arr.length; i++) {
+                        var _node = $('#'+arr[i]).get(0);
+                        var _nodeInfo = instance.getItemInfo(_node.id, 'node');
+                        if(iLeft === 0) iLeft = _nodeInfo.left;
+                        NodeInstance.moveNode(_node.id, iLeft, false);
+                        iLeft += _nodeInfo.width + space;
+                    }
+                },
+                setVerticalSameSpace: function(e) {  //垂直间距相等
+                    if(!NodeInstance.$selected || !NodeInstance.$selected.length) return false;
+                    var arr = NodeInstance.$selected;
+                    var iTop = 0;
+                    var space = 0;
+
+                    //计算所有节点之间的平均间距
+                    for (var i = 0; i < arr.length; i++) {
+                        var _node = $('#'+arr[i]).get(0);
+                        var _nodeInfo = instance.getItemInfo(_node.id, 'node');
+                        if(i > 0) {
+                            var prevNode = instance.getItemInfo(arr[i-1], 'node');
+                            space += _nodeInfo.top - (prevNode.top+prevNode.height);
+                        }
+                    }
+                    space = space/(arr.length - 1);
+
+                    for (var i = 0; i < arr.length; i++) {
+                        var _node = $('#'+arr[i]).get(0);
+                        var _nodeInfo = instance.getItemInfo(_node.id, 'node');
+                        if(iTop === 0) iTop = _nodeInfo.top;
+                        NodeInstance.moveNode(_node.id, false, iTop);
+                        iTop += _nodeInfo.height + space;
+                    }
                 }
             }
 
@@ -1229,20 +1736,20 @@
 
                 addArea: function(id, json) {
                     if (typeof instance.onItemAdd == 'function' && !instance.onItemAdd(id, "area", json)) return;
-                    instance.$editable && instance.dataChanged();
+                    instance.$editable && !instance.$onInit && instance.dataChanged();
 
-                    if (instance.$editable && config.rollback) {
+                    if (instance.$editable && instance.$onInit == false && config.rollback) {
                         rollbackHelper.pushOper("AreaInstance.delArea", [id]);
                     }
                     var newArea = AreaInstance.createArea(id, json);
                     AreaInstance.$areaData[id] = json;
-                    instance.$group.append(newArea);
+                    instance.$groupArea.append(newArea);
                     AreaInstance.$areaCount++;
                     AreaInstance.$areaMaxId++;
                     AreaInstance.$areaMaxId = instance.getMaxItemId(id, AreaInstance.$areaMaxId, 'area');
 
                     //绑定尺寸改变，完成时更新对应分组dom
-                    sizeableMe(newArea, instance.$group[0], function(info) {
+                    sizeableMe(newArea, instance.$groupArea[0], function(info) {
                         AreaInstance.resizeArea(id, info.width, info.height);
                     }, {fix:-2, minWidth: 120, minHeight:50, maxWidth:2000, maxHeight:2000});
 
@@ -1264,17 +1771,18 @@
                     if (instance.$editable) {
                         if (instance.$deletedItem[id]) delete instance.$deletedItem[id]; //在回退删除操作时,去掉该元素的删除记录
                     }
+                    return $('#'+id+'.group_item');
                 },
                 createArea: function(id, json) {
                     var html = '';
-                    html += "<div id='" + id + "' class='grouparea area_" + json.color + "' style='top:" + json.top + "px;left:" + json.left + "px;width:" + (json.width) + "px;height:" + (json.height) + "px'>" + "<label class='label'>" + json.label + "</label><i class='color'></i></div>";
+                    html += "<div id='" + id + "' class='group_item area_" + json.color + "' style='top:" + json.top + "px;left:" + json.left + "px;width:" + (json.width) + "px;height:" + (json.height) + "px'>" + "<label class='label'>" + json.label + "</label><i class='color'></i></div>";
                     return $(html);
                 },
                 //设置区域分块的尺寸
                 resizeArea: function(id, width, height) {
                     if (!AreaInstance.$areaData[id]) return;
                     if (typeof instance.onItemResize == 'function' && !instance.onItemResize(id, "area", width, height)) return;
-                    instance.$editable && instance.dataChanged();
+                    instance.$editable && !instance.$onInit && instance.dataChanged();
 
                     if (instance.$editable && config.rollback) {
                         var paras = [id, AreaInstance.$areaData[id].width, AreaInstance.$areaData[id].height];
@@ -1308,7 +1816,7 @@
                 moveArea: function(id, left, top) {
                     if (!AreaInstance.$areaData[id]) return;
                     if (typeof instance.onItemMove == 'function' && !instance.onItemMove(id, "area", left, top)) return;
-                    instance.$editable && instance.dataChanged();
+                    instance.$editable && !instance.$onInit && instance.dataChanged();
 
                     if (instance.$editable && config.rollback) {
                         var paras = [id, AreaInstance.$areaData[id].left, AreaInstance.$areaData[id].top];
@@ -1330,7 +1838,7 @@
                 delArea: function(id) {
                     if (!AreaInstance.$areaData[id]) return;
                     if (typeof instance.onItemDel == 'function' && !instance.onItemDel(id, 'area')) return;
-                    instance.$editable && instance.dataChanged();
+                    instance.$editable && !instance.$onInit && instance.dataChanged();
 
                     if (instance.$editable && config.rollback) {
                         var paras = [id, AreaInstance.$areaData[id]];
@@ -1349,7 +1857,7 @@
                     if (!AreaInstance.$areaData[id]) return;
                     if (AreaInstance.$areaData[id].label == label) return;
                     if (typeof instance.onItemRename == 'function' && !instance.onItemRename(id, label, "area")) return;
-                    instance.$editable && instance.dataChanged();
+                    instance.$editable && !instance.$onInit && instance.dataChanged();
 
                     oldLabel = AreaInstance.$areaData[id].label;
                     AreaInstance.$areaData[id].label = label;
@@ -1409,7 +1917,7 @@
                 //增加一条线
                 addLine: function(id, json, isLoad) {
                     if (typeof instance.onItemAdd == 'function' && !instance.onItemAdd(id, "line", json)) return;
-                    instance.$editable && instance.dataChanged();
+                    instance.$editable && !instance.$onInit && instance.dataChanged();
 
                     if (json.from == json.to) return;
                     var nodeFrom = NodeInstance.$nodeData[json.from],
@@ -1430,11 +1938,11 @@
                             target: json.to
                         });
                         lineDom.getOverlay("label").setLabel(json.label);
-                        if (instance.$editable && config.rollback) {
+                        if (instance.$editable && instance.$onInit == false && config.rollback) {
                             rollbackHelper.pushOper("LineInstance.delLine", [id]);
                         }
                     } else {
-                        if (instance.$editable && config.rollback) {
+                        if (instance.$editable && instance.$onInit == false && config.rollback) {
                             rollbackHelper.pushOper("LineInstance.delLine", [id]);
                         }
                     }
@@ -1447,7 +1955,7 @@
                 delLine: function(id) {
                     if (!LineInstance.$lineData[id]) return;
                     if (typeof instance.onItemDel == 'function' && !instance.onItemDel(id, 'line')) return;
-                    instance.$editable && instance.dataChanged();
+                    instance.$editable && !instance.$onInit && instance.dataChanged();
 
                     if (instance.$editable && config.rollback) {
                         var paras = [id, LineInstance.$lineData[id], true];
@@ -1456,7 +1964,7 @@
                     var fromId = LineInstance.$lineData[id].from, toId = LineInstance.$lineData[id].to;
                     if (instance.$editable) {
                         var ele = instance.getItemInfo(id, 'line');
-                        if (NodeInstance.$focus == id) NodeInstance.$focus = "";
+                        //if (NodeInstance.$focus == id) NodeInstance.$focus = "";
                         instance.$JP.detach(ele);
                         delete LineInstance.$lineData[id];
                         instance.$deletedItem[id] = "line";
@@ -1477,7 +1985,7 @@
                     var lineId = LineInstance.createLineId(newFrom, newTo);
 
                     if (typeof instance.onLinePointMove == 'function' && !instance.onLinePointMove(id, newStart, newEnd)) return;
-                    instance.$editable && instance.dataChanged();
+                    instance.$editable && !instance.$onInit && instance.dataChanged();
 
                     if(LineInstance.$lineData[oldId]) delete LineInstance.$lineData[oldId];
                     LineInstance.$lineData[lineId] = {};
@@ -1510,7 +2018,7 @@
                     if(e.ctrlKey) {
                         if(confirm('确定删除该连接线？')) {
                             var lineId = LineInstance.createLineId(el.source.id, el.target.id);
-                            LineInstance.delLine(lineId, el);
+                            LineInstance.delLine(lineId);
                         }
                     }
                     return  true;
@@ -1571,7 +2079,7 @@
                     if (!LineInstance.$lineData[id]) return;
                     if (LineInstance.$lineData[id].label == label) return;
                     if (typeof instance.onItemRename == 'function' && !instance.onItemRename(id, label, "line")) return;
-                    instance.$editable && instance.dataChanged();
+                    instance.$editable && !instance.$onInit && instance.dataChanged();
 
                     var lineEle = instance.getItemInfo(id, 'line');
                     oldLabel = lineEle.getOverlay("label").getLabel();
@@ -1588,7 +2096,7 @@
                 //更改连线样式
                 changeType: function(newType) {
                     if (typeof instance.onLineTypeChanged == 'function' && !instance.onLineTypeChanged(instance.$lineType, newType)) return;
-                    instance.$editable && instance.dataChanged();
+                    instance.$editable && !instance.$onInit && instance.dataChanged();
 
                     var _type = 'Flowchart';
                     if(instance.$lineTypes.inArray(newType)) {
@@ -1657,79 +2165,291 @@
                 var html = '<div class="sizeable" style="display:none"><div class="rs_bottom"></div><div class="rs_right"></div><div class="rs_rb"></div><div class="rs_close"></div></div>';
                 $(ele).append(html);
                 //区域划分框操作区的事件绑定
+                var sizeInfo = {};
+                var cursor;
+                var targetEle;
+                var X, Y;
+                var down = false;
+                var downAndMove = false;
+                var offsetX = 0, offsetY = 0;
+                var oldWidth, oldHeight;
+                var newWidth, newHeight;
                 $(ele).find('.sizeable div').on("mousedown", function(e) {
-                    var sizeInfo = {};
-
                     if (e.button == 2) return false;    //不能是右键
+                    down = true;
                     e = e || window.event;
                     e.preventDefault();
                     e.stopPropagation();
-
-                    var cursor = $(e.target).css("cursor");
-                    var targetEle = e.target.parentNode.parentNode;
-
+                    cursor = $(e.target).css("cursor");
+                    targetEle = e.target.parentNode.parentNode;
                     var ev = mousePosition(e);
 
-                    var X, Y;
                     X = ev.x;
                     Y = ev.y;
 
-                    var oldWidth = $(ele).outerWidth(), oldHeight = $(ele).outerHeight();
-                    var newWidth = oldWidth, newHeight = oldHeight;
-                    var offsetX = 0, offsetY = 0;
-                    var downAndMove = false;
-
-                    $(document).mousemove(function(e) {
-                        e = e || window.event;
-                        var ev = mousePosition(e);
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (cursor != "move") {
-                            downAndMove = true;
-                            offsetX = ev.x - X;
-                            offsetY = ev.y - Y;
-                            newWidth = oldWidth + offsetX + options.fix;
-                            newHeight = oldHeight + offsetY + options.fix;
-                            if (newWidth < options.minWidth) newWidth = options.minWidth;
-                            if (newHeight < options.minHeight) newHeight = options.minHeight;
-                            if (newWidth > options.maxWidth) newWidth = options.maxWidth;
-                            if (newHeight > options.maxHeight) newHeight = options.maxHeight;
-                            switch (cursor) {
-                                case "nw-resize":
-                                    $(ele).css({
-                                        width: newWidth + "px",
-                                        height: newHeight + "px"
-                                    });
-                                    break;
-                                case "w-resize":
-                                    newHeight = oldHeight + options.fix;
-                                    $(ele).css({
-                                        width: newWidth + "px"
-                                    });
-                                    break;
-                                case "n-resize":
-                                    newWidth = oldWidth + options.fix;
-                                    $(ele).css({
-                                        height: newHeight + "px"
-                                    });
-                                    break;
-                            }
+                    oldWidth = $(ele).outerWidth(), oldHeight = $(ele).outerHeight();
+                    newWidth = oldWidth, newHeight = oldHeight;
+                    offsetX = 0, offsetY = 0;
+                    downAndMove = false;
+                });
+                $(document).mousemove(function(e) {
+                    if(!down) return;
+                    e = e || window.event;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var ev = mousePosition(e);
+                    if (cursor != "move") {
+                        downAndMove = true;
+                        offsetX = ev.x - X;
+                        offsetY = ev.y - Y;
+                        newWidth = oldWidth + offsetX + options.fix;
+                        newHeight = oldHeight + offsetY + options.fix;
+                        if (newWidth < options.minWidth) newWidth = options.minWidth;
+                        if (newHeight < options.minHeight) newHeight = options.minHeight;
+                        if (newWidth > options.maxWidth) newWidth = options.maxWidth;
+                        if (newHeight > options.maxHeight) newHeight = options.maxHeight;
+                        switch (cursor) {
+                            case "nw-resize":
+                                $(ele).css({
+                                    width: newWidth + "px",
+                                    height: newHeight + "px"
+                                });
+                                break;
+                            case "w-resize":
+                                newHeight = oldHeight + options.fix;
+                                $(ele).css({
+                                    width: newWidth + "px"
+                                });
+                                break;
+                            case "n-resize":
+                                newWidth = oldWidth + options.fix;
+                                $(ele).css({
+                                    height: newHeight + "px"
+                                });
+                                break;
                         }
-                    });
-                    $(document).mouseup(function(e) {
-                        e = e || window.event;
-                        e.preventDefault();
-                        e.stopPropagation();
-                        $(document).off('mousemove');
-                        $(document).off('mouseup');
-                        if(!downAndMove) return false;
-                        sizeInfo.width = newWidth;
-                        sizeInfo.height = newHeight;
-                        if(typeof doneFunc == 'function') doneFunc.call(this, sizeInfo);
-                        return false;
-                    });
+                    }
+                });
+                $(document).mouseup(function(e) {
+                    if(!down) return;
+                    down = false;
+                    e = e || window.event;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if(!downAndMove) return false;
+                    downAndMove = false;
+                    sizeInfo.width = newWidth;
+                    sizeInfo.height = newHeight;
+                    if(typeof doneFunc == 'function') doneFunc.call(this, sizeInfo);
+                    return false;
                 });
             }
+
+            //鼠标拉选区域帮助类
+            var regionAreaHelper = function() {
+                this.options = {};      //参数
+                this.mousedownX = 0;    //鼠标按下时的X坐标
+                this.mousedownY = 0;    //鼠标按下时的Y坐标
+                this.mouseX = 0;        //鼠标最终X坐标
+                this.mouseY = 0;        //鼠标最终Y坐标
+                this.regionX = 0;       //区域X坐标
+                this.regionY = 0;       //区域Y坐标
+                this.regionWidth = 0;   //区域宽度
+                this.regionHeight = 0;  //雨区高度
+                this.drawRegion = false;//是否划出了区域
+                this.drawRegionMouseDown = false;//是否按下了鼠标
+                this.ghostDom = null;   //临时区域
+
+                this.init = function(_option) {
+                    var defaultOption = {
+                        targetDom: null,        //需要绑定的jQuery对象
+                        ghostClass: null,         //拉选区域样式类
+                        ctrl: false,            //是否需要按住Ctrl键才能触发
+                        onMouseDown: null,      //参数： (obj, e)
+                        onMouseMove: null,      //参数： (obj, e)
+                        onMouseUp: null,        //参数： (obj, e)
+                        onRegionDone: null      //区域画出完成 (obj, e)
+                    };
+                    $.extend(defaultOption, _option);
+                    $.extend(this.options, defaultOption);
+                    this.ghostDom = $("<div class='"+this.options.ghostClass+"'></div>").attr({
+                        "unselectable": "on",
+                        "onselectstart": 'return false'
+                    });
+                    this.ghostDom.appendTo(this.options.targetDom);
+                    this.doEvent();
+                }
+                this.doEvent = function() {
+                    var _this = this;
+                    var targetLeft, targetTop;
+                    var endX, endY;
+
+                    if(!_this.options.targetDom) return;
+                    _this.options.targetDom.on("mousedown", function(e) {
+                        if (e.button == 2) return;
+                        _this.drawRegion = false;
+                        if(_this.options.ctrl && !e.ctrlKey) return;
+                        _this.drawRegionMouseDown = true;
+                        if(typeof _this.options.onMouseDown == 'function' && _this.options.onMouseDown(_this, e) === false) return;
+                        e = e || window.event;
+                        var m = mousePosition(e);
+                        targetLeft = $(e.target).offset().left;
+                        targetTop = $(e.target).offset().top;
+                        _this.regionX = m.x - $(e.target).offset().left;
+                        _this.regionY = m.y - $(e.target).offset().top;
+                        _this.mousedownX = _this.regionX;
+                        _this.mousedownY = _this.regionY;
+                        _this.mouseX = _this.mousedownX;
+                        _this.mouseY = _this.mousedownY;
+                        _this.regionWidth = 0;
+                        _this.regionHeight = 0;
+                        _this.ghostDom.css({width:0, height:0}).show();
+                    });
+                    $(document).on('mousemove', _this.options.targetDom, function(e) {
+                        if(_this.drawRegionMouseDown == false) return;
+                        _this.drawRegion = true;
+                        if(typeof _this.options.onMouseMove == 'function' && _this.options.onMouseMove(_this, e) === false) return;
+                        e = e || window.event;
+                        var m = mousePosition(e);
+                        var X, Y;
+                        X = m.x - _this.regionX - targetLeft;
+                        Y = m.y - _this.regionY - targetTop;
+                        if(X > 0 && Y > 0) {    //右下
+                            _this.regionWidth = X;
+                            _this.regionHeight = Y;
+                            _this.mouseX = _this.mousedownX;
+                            _this.mouseY = _this.mousedownY;
+                            _this.ghostDom && _this.ghostDom.css({
+                                width: X,
+                                height: Y,
+                                left: _this.regionX,
+                                top: _this.regionY
+                            });
+                        } else if(X < 0 && Y > 0) { //左下
+                            endX = m.x - _this.options.targetDom.offset().left;
+                            _this.mouseX = endX;
+                            _this.mouseY = _this.mousedownY;
+                            _this.regionWidth = Math.abs(X);
+                            _this.regionHeight = Y;
+                            _this.ghostDom && _this.ghostDom.css({
+                                left: endX,
+                                top: _this.regionY,
+                                width: Math.abs(X),
+                                height: Y
+                            });
+                        } else if(X > 0 && Y < 0) { //右上
+                            endY = m.y - _this.options.targetDom.offset().top;
+                            _this.mouseX = _this.mousedownX;
+                            _this.mouseY = endY;
+                            _this.regionWidth = X;
+                            _this.regionHeight = Math.abs(Y);
+                            _this.ghostDom && _this.ghostDom.css({
+                                left: _this.regionX,
+                                top: endY,
+                                width: X,
+                                height: Math.abs(Y)
+                            });
+                        } else if(X < 0 && Y < 0) { //左上
+                            endX = m.x - _this.options.targetDom.offset().left;
+                            endY = m.y - _this.options.targetDom.offset().top;
+                            _this.mouseX = endX;
+                            _this.mouseY = endY;
+                            _this.regionWidth = Math.abs(X);
+                            _this.regionHeight = Math.abs(Y);
+                            _this.ghostDom && _this.ghostDom.css({
+                                left: endX,
+                                top: endY,
+                                width: Math.abs(X),
+                                height: Math.abs(Y)
+                            });
+                        } else if(X == 0 && Y == 0) {   //原点
+                            _this.mouseX = _this.mousedownX;
+                            _this.mouseY = _this.mousedownY;
+                            _this.regionWidth = 0;
+                            _this.regionHeight = 0;
+                            _this.ghostDom && _this.ghostDom.css({
+                                left: _this.regionX,
+                                top: _this.regionY,
+                                width: 0,
+                                height: 0
+                            });
+                        }
+                    });
+                    $(document).on('mouseup', _this.options.targetDom, function(e) {
+                        if(_this.drawRegionMouseDown == false) return;
+                        _this.drawRegionMouseDown = false;
+                        if(typeof _this.options.onMouseUp == 'function' && _this.options.onMouseUp(_this, e) === false) return;
+
+                        e = e || window.event;
+                        var m = mousePosition(e);
+                        var X, Y;
+                        X = m.x - _this.regionX - targetLeft;
+                        Y = m.y - _this.regionY - targetTop;
+                        if(X > 0 && Y > 0) {    //右下
+                            _this.regionWidth = X;
+                            _this.regionHeight = Y;
+                            _this.ghostDom && _this.ghostDom.css({
+                                width: X,
+                                height: Y,
+                            });
+                        } else if(X < 0 && Y > 0) { //左下
+                            endX = m.x - _this.options.targetDom.offset().left;
+                            endY = _this.regionY;
+                            _this.regionX = endX;
+                            _this.regionWidth = Math.abs(X);
+                            _this.regionHeight = Y;
+                            _this.ghostDom && _this.ghostDom.css({
+                                left: endX,
+                                top: endY,
+                                width: Math.abs(X),
+                                height: Y
+                            });
+                        } else if(X > 0 && Y < 0) { //右上
+                            endX = _this.regionX;
+                            endY = m.y - _this.options.targetDom.offset().top;
+                            _this.regionY = endY;
+                            _this.regionWidth = X;
+                            _this.regionHeight = Math.abs(Y);
+                            _this.ghostDom && _this.ghostDom.css({
+                                left: endX,
+                                top: endY,
+                                width: X,
+                                height: Math.abs(Y)
+                            });
+                        } else if(X < 0 && Y < 0) { //左上
+                            endX = m.x - _this.options.targetDom.offset().left;
+                            endY = m.y - _this.options.targetDom.offset().top;
+                            _this.regionX = endX;
+                            _this.regionY = endY;
+                            _this.regionWidth = Math.abs(X);
+                            _this.regionHeight = Math.abs(Y);
+                            _this.ghostDom && _this.ghostDom.css({
+                                left: endX,
+                                top: endY,
+                                width: Math.abs(X),
+                                height: Math.abs(Y)
+                            });
+                        } else if(X == 0 && Y == 0) {   //原点
+                            _this.regionWidth = 0;
+                            _this.regionHeight = 0;
+                            _this.ghostDom && _this.ghostDom.css({
+                                left: _this.regionX,
+                                top: _this.regionY,
+                                width: 0,
+                                height: 0
+                            });
+                        }
+                        _this.ghostDom.hide();
+                        if(_this.options.ctrl && !e.ctrlKey) {
+                            _this.ghostDom.hide();
+                            return;
+                        }
+                        _this.drawRegion = false;
+
+                        if(typeof _this.options.onRegionDone == 'function' && _this.options.onRegionDone(_this, e) === false) return;
+                    });
+                };
+            };
 
             var rollbackHelper = {
                 undoStack: [],     //“撤销操作”栈。

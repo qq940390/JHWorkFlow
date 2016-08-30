@@ -1,7 +1,8 @@
 /*流程图顶层样式类*/
 .jhworkflow{background:#F5F5F5;border:#00B4E1 1px solid;color:#333;border-radius:6px;font-size:14px;-moz-user-select:none;
-    -webkit-user-select:none;overflow: hidden;position: relative;}
-.jhworkflow .rs_ghost{position:absolute;display:none;overflow:hidden;border:#8EA4C1 1px dashed; background:#D9E8FB;opacity: 0.6;z-index:10}
+    -webkit-user-select:none;overflow: hidden;position: relative;z-index: 0;}
+.jhworkflow .rs_ghost_node{position:absolute;display:none;overflow:hidden;border:#8EA4C1 1px dashed; background:rgba(0,0,0,0.1);opacity: 0.6;z-index:10}
+.jhworkflow .rs_ghost_group{position:absolute;display:none;overflow:hidden;border:#8EA4C1 1px dashed; background:#D9E8FB;opacity: 0.6;z-index:10}
 .jhworkflow .textmask{position:absolute;border:#3892D3 1px solid;display:none;font: 1em Microsoft Yahei;overflow-y:visible;width:100px;z-index:10001}
 
 .jhworkflow .lineLabel{z-index: 3;line-height: 20px;min-height: 8px;max-width:240px;white-space: normal;word-break: break-all;}
@@ -31,9 +32,11 @@
     margin:3px 1px 0 1px;float:left;outline:none;text-align:center;}
 .jhworkflow .flow_header .controlbox .toolbtn i{display:block;overflow:hidden;width:18px;height:18px;border:0px;
     background-image: url(../images/workflow_icon.png);background-repeat: no-repeat;}
-.jhworkflow .flow_header .controlbox .toolbtn.disabled{cursor: not-allowed;}
+.jhworkflow .flow_header .controlbox .toolbtn.disabled{cursor: not-allowed;-webkit-filter: grayscale(100%);-moz-filter: grayscale(100%);
+-ms-filter: grayscale(100%);-o-filter: grayscale(100%);filter: grayscale(100%);filter: gray;}
 .jhworkflow .flow_header .controlbox .toolbtn:hover{border-radius:2px;background:#FFBF00}
 .jhworkflow .flow_header .controlbox .toolbtn:hover i{}
+.jhworkflow .flow_header .controlbox .toolbtn.disabled{opacity: 0.5;}
 
 /*左栏工具栏*/
 .jhworkflow .tools_panel{overflow:hidden;border-right:#ccc 1px solid;position: absolute;top:32px;left:0;display: block;overflow: hidden;
@@ -49,45 +52,50 @@
 .jhworkflow .tools_panel .controlbox .toolbtn.down i{}
 
 /*画图区*/
-.jhworkflow .work_panel{border:#F5F5F5 1px solid;position:absolute;overflow:scroll;left: 28px;top: 32px;}
+.jhworkflow .work_panel{border:#F5F5F5 1px solid;position:absolute;left: 28px;top: 32px;background-image:url(../images/workflow_blank.gif);}
+.jhworkflow .work_panel.scrollbar{overflow:scroll;}
 
-.jhworkflow .work_panel .workarea{background-image:url(../images/workflow_blank.gif);position:relative;overflow:hidden;}
+.jhworkflow .work_panel .workarea{position:relative;overflow:hidden;z-index: 2;}
 
-.jhworkflow .work_panel .workarea .node_item{position:absolute;border:#A1DCEB solid 1px;border-radius:3px;display: table;
-    box-shadow:1px 1px 2px rgba(0,0,0,0.5);overflow: hidden;z-index: 4;max-width: 600px;max-height: 600px;text-shadow:none;}
+.jhworkflow .work_panel .workarea .node_item{position:absolute;border:#27a solid 1px;border-radius:3px;display: table;
+    box-shadow:0px 0px 3px 1px rgba(0,0,0,0.3);overflow: hidden;z-index: 4;max-width: 600px;max-height: 600px;text-shadow:none;}
 .jhworkflow .work_panel .workarea .node_item .glyphicon{cursor: pointer;top: 0;bottom:0;left: 5px;position: absolute;margin: auto;z-index:2;
     width:18px;height:18px;background-image:url(../images/workflow_icon.png);background-repeat: no-repeat;}
 .jhworkflow .work_panel .workarea .node_item .nodebody{cursor: move;display: table-cell;position: relative;white-space: normal;word-break: break-all;
     text-align: left;padding-left: 22px;font-size:14px;vertical-align: middle;}
 .jhworkflow .work_panel .workarea .node_item .texteditor{position: absolute;height: 22px;line-height: 22px;z-index: 1;top: 1px;left:28px;color:#000;}
 
-.jhworkflow .work_panel .workarea .node_item.item_mark{border:#FF6701 1px solid;box-shadow: 0 0 6px 1px #FF6701;color:#000;}
-.jhworkflow .work_panel .workarea .node_item.item_finish{border:#4FA201 1px solid;box-shadow: 0 0 6px 1px #4FA201;color:#999;}
-.jhworkflow .work_panel .workarea .node_item.item_doing{border:#0189FF 1px solid;box-shadow: 0 0 6px 1px #0189FF;color:#0189FF;font-weight:700;}
-.jhworkflow .work_panel .workarea .node_item.item_focus{border:#000 1px solid;box-shadow: 0 0 6px 1px #000;}
-.jhworkflow .work_panel .workarea .node_item.crosshair,
-.jhworkflow .work_panel .workarea .node_item.crosshair td{cursor: crosshair;}
+.jhworkflow .work_panel .workarea .node_item.item_mark{border:#00a 1px solid;box-shadow: 0 0 6px 1px #00a;color:#00a;}
+.jhworkflow .work_panel .workarea .node_item.item_mark:after{content:"\5DF2\6807\8BB0";position: absolute;top:1px;right: 1px;z-index: 2;color: #fff;
+    font-weight: normal;background: rgba(255,0,0,0.5);padding: 3px 5px;}
+.jhworkflow .work_panel .workarea .node_item.item_finish{border:#f00 1px solid;box-shadow: 0 0 6px 1px #f00;color:#933;}
+.jhworkflow .work_panel .workarea .node_item.item_finish:after{content:"\5DF2\5B8C\6210";position: absolute;top:1px;right: 1px;z-index: 2;color: #fff;
+    font-weight: normal;background: rgba(255,0,0,0.5);padding: 3px 5px;}
+.jhworkflow .work_panel .workarea .node_item.item_doing{border:#080 1px solid;box-shadow: 0 0 6px 1px #080;color:#080;font-weight:700;}
+.jhworkflow .work_panel .workarea .node_item.item_doing:after{content:"\8FDB\884C\4E2D";position: absolute;top:1px;right: 1px;z-index: 2;color: #fff;
+    font-weight: normal;background: rgba(0,100,0,0.5);padding: 3px 5px;}
+.jhworkflow .work_panel .workarea .node_item.item_selected{border:#000 1px solid;box-shadow: 0 0 6px 1px rgba(0,0,0,1);}
 
 .jhworkflow .work_panel .workgroup{cursor:default;position:absolute;overflow:hidden;top:0px;left:0px;z-index: 100;}
 .jhworkflow .work_panel .workgroup.lock{z-index: 0}
-.jhworkflow .work_panel .workgroup .grouparea{cursor:default;position:absolute;overflow:hidden;border-radius: 3px;}
-.jhworkflow .work_panel .workgroup .grouparea .lock{cursor:default;}
-.jhworkflow .work_panel .workgroup .grouparea label{cursor:text;top:1px;left:1px;position:absolute;display:block;font-size:14px; padding:0;
+.jhworkflow .work_panel .workgroup .group_item{cursor:move;position:absolute;overflow:hidden;border-radius: 3px;}
+.jhworkflow .work_panel .workgroup .group_item .lock{cursor:default;}
+.jhworkflow .work_panel .workgroup .group_item label{cursor:text;top:1px;left:1px;position:absolute;display:block;font-size:14px; padding:0;
     text-indent:20px;height:18px;line-height:18px;background-image: url(../images/workflow_bullet.png);background-repeat: no-repeat;}
-.jhworkflow .work_panel .workgroup .grouparea i{display:block;height:18px;width:18px;top:0px;left:0px;position:absolute;cursor:pointer}
-.jhworkflow .work_panel .workgroup .grouparea .texteditor{position: absolute;height: 22px;line-height: 22px;z-index: 1;top: 0;left:20px;color:#000;}
-.jhworkflow .work_panel .workgroup .grouparea.lock{cursor:default;}
-.jhworkflow .work_panel .workgroup .grouparea.lock label{cursor:default;}
-.jhworkflow .work_panel .workgroup .grouparea.lock i{cursor:default;}
+.jhworkflow .work_panel .workgroup .group_item i{display:block;height:18px;width:18px;top:0px;left:0px;position:absolute;cursor:pointer}
+.jhworkflow .work_panel .workgroup .group_item .texteditor{position: absolute;height: 22px;line-height: 22px;z-index: 1;top: 0;left:20px;color:#000;}
+.jhworkflow .work_panel .workgroup .group_item.lock{cursor:default;}
+.jhworkflow .work_panel .workgroup .group_item.lock label{cursor:default;}
+.jhworkflow .work_panel .workgroup .group_item.lock i{cursor:default;}
 /*分组样式*/
-.jhworkflow .work_panel .workgroup .grouparea.area_red{border:1px solid rgba(255,120,101,0.6);background-color:rgba(255,120,101,0.3)}
-.jhworkflow .work_panel .workgroup .grouparea.area_red label{color:red;background-position: 1px 1px}
-.jhworkflow .work_panel .workgroup .grouparea.area_yellow{border:1px solid rgba(255,213,100,0.6);background-color:rgba(255,213,100,0.3)}
-.jhworkflow .work_panel .workgroup .grouparea.area_yellow label{color:#cc6802;background-position: 1px -16px}
-.jhworkflow .work_panel .workgroup .grouparea.area_blue{border:1px solid rgba(84,156,222,0.6);background-color:rgba(84,156,222,0.3)}
-.jhworkflow .work_panel .workgroup .grouparea.area_blue label{color:#347BB1;background-position: 1px -33px}
-.jhworkflow .work_panel .workgroup .grouparea.area_green{border:1px solid rgba(132,202,4,0.6);background-color:rgba(132,202,4,0.3)}
-.jhworkflow .work_panel .workgroup .grouparea.area_green label{color:green;background-position: 1px -50px}
+.jhworkflow .work_panel .workgroup .group_item.area_red{border:1px solid rgba(255,120,101,0.6);background-color:rgba(255,120,101,0.3)}
+.jhworkflow .work_panel .workgroup .group_item.area_red label{color:red;background-position: 1px 1px}
+.jhworkflow .work_panel .workgroup .group_item.area_yellow{border:1px solid rgba(255,213,100,0.6);background-color:rgba(255,213,100,0.3)}
+.jhworkflow .work_panel .workgroup .group_item.area_yellow label{color:#cc6802;background-position: 1px -16px}
+.jhworkflow .work_panel .workgroup .group_item.area_blue{border:1px solid rgba(84,156,222,0.6);background-color:rgba(84,156,222,0.3)}
+.jhworkflow .work_panel .workgroup .group_item.area_blue label{color:#347BB1;background-position: 1px -33px}
+.jhworkflow .work_panel .workgroup .group_item.area_green{border:1px solid rgba(132,202,4,0.6);background-color:rgba(132,202,4,0.3)}
+.jhworkflow .work_panel .workgroup .group_item.area_green label{color:green;background-position: 1px -50px}
 
 /*基本图标*/
 .jhworkflow .glyphicon_open i{background-position: -19px 1px;}
@@ -99,6 +107,21 @@
 .jhworkflow .glyphicon_undo.disabled i{background-position: -97px 1px;}
 .jhworkflow .glyphicon_redo i{background-position: -78px 1px;}
 .jhworkflow .glyphicon_redo.disabled i{background-position: -116px 1px;}
+.jhworkflow .glyphicon__split_{width: 0 !important;height: 100%;border-left: 1px solid #ccc !important;padding: 0 !important;
+    overflow: hidden;margin: 3px 5px !important;}
+.jhworkflow .glyphicon__split_ i{background:none !important;}
+.jhworkflow .glyphicon_align_top i{background-position: 1px -64px;}
+.jhworkflow .glyphicon_align_right i{background-position: -19px -64px;}
+.jhworkflow .glyphicon_align_bottom i{background-position: -40px -64px;}
+.jhworkflow .glyphicon_align_left i{background-position: -65px -64px;}
+.jhworkflow .glyphicon_horizontal_center i{background-position: -89px -64px;}
+.jhworkflow .glyphicon_vertical_center i{background-position: -111px -64px;}
+.jhworkflow .glyphicon_leftrightclose i{background-position: -137px -64px;}
+.jhworkflow .glyphicon_topbottomclose i{background-position: -163px -64px;}
+.jhworkflow .glyphicon_samewidth i{background-position: -189px -64px;}
+.jhworkflow .glyphicon_sameheight i{background-position: -214px -64px;}
+.jhworkflow .glyphicon_horizontal_samespace i{background-position: -65px -22px;}
+.jhworkflow .glyphicon_vertical_samespace i{background-position: -89px -22px;}
 
 .jhworkflow .glyphicon_cursor i{background-position: 2px -20px;}
 .jhworkflow .glyphicon_group i{background-position: -43px -22px;}

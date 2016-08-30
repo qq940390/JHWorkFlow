@@ -10,6 +10,7 @@
 其中 nodes 集合单个 json 格式如下：
 node = {
     id: "",         //节点ID
+    nid: 0,         //流程节点ID
     type: "",       //节点类型
     label: "",      //节点描述
     left: 0,
