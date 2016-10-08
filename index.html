@@ -4,10 +4,10 @@
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" type="text/css" href="../dist/bootstrap/css/bootstrap.min.css" />
-    <link rel="stylesheet" type="text/css" href="../dist/bootstrap/css/bootstrap-theme.min.css" />
-    <link rel="stylesheet" type="text/css" href="../dist/plugins/contextmenu.css" />
-    <link rel="stylesheet" type="text/css" href="../src/css/defaultstyle.css"/>
+    <link rel="stylesheet" type="text/css" href="dist/bootstrap/css/bootstrap.min.css" />
+    <link rel="stylesheet" type="text/css" href="dist/bootstrap/css/bootstrap-theme.min.css" />
+    <link rel="stylesheet" type="text/css" href="dist/plugins/contextmenu.css" />
+    <link rel="stylesheet" type="text/css" href="src/css/defaultstyle.css"/>
     <title>流程图</title>
     <meta name="keywords" content="" />
     <meta name="description" content=" " />
@@ -60,12 +60,12 @@
         </ul>
     </div>
 
-    <script src="../dist/jquery2.js"></script>
+    <script src="dist/jquery2.js"></script>
     <script src="./data.js"></script>
-    <script src="../dist/jsPlumb-2.0.6.js"></script>
-    <script src="../dist/plugins/jquery.contextmenu.r2.js"></script>
-    <script src="../dist/plugins/layer.js"></script>
-    <script src="../src/jhworkflow.js"></script>
+    <script src="dist/jsPlumb-2.0.6.js"></script>
+    <script src="dist/plugins/jquery.contextmenu.r2.js"></script>
+    <script src="dist/plugins/layer.js"></script>
+    <script src="src/jhworkflow.js"></script>
     <script>
         
         var workAreaMenuJson = {
@@ -129,12 +129,7 @@
             }
 
             workflow.onBtnSaveClick = function() {
-                $.post('action.php', {data:workflow.exportData()}, function(data) {
-                    if(data == 'ok') {
-                        alert('保存成功！');
-                        workflow.dataChanged(true);
-                    }
-                });
+                alert('这里只是演示，需要自行处理保存JSON数据哦！');
             }
 
             workflow.loadData(jsondata);
