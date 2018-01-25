@@ -8,7 +8,7 @@
  */
 
 (function($) {
-    
+
     Array.prototype.inArray = function(e) {
         for(i=0;i<this.length && this[i]!=e;i++);
         return !(i==this.length);
@@ -335,7 +335,7 @@
                             instance.$workArea.append(instance.$dragDom);
                             e.dataTransfer.effectAllowed = "all";
                             e.dataTransfer.setData("text", _type);
-                            e.dataTransfer.setDragImage(instance.$dragDom[0], NodeInstance.$initNodeWidth/2 - 1, NodeInstance.$initNodeHeight/2 - 1);
+                            e.dataTransfer.setDragImage(new Image(), 0, 0);
                             return true;
                         }
                         //拖拽时控制对象的坐标

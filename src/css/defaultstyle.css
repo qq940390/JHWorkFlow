@@ -57,7 +57,7 @@
 
 .jhworkflow .work_panel .workarea{position:relative;overflow:hidden;z-index: 2;}
 
-.jhworkflow .work_panel .workarea .node_item{position:absolute;border:#27a solid 1px;border-radius:3px;display: table;
+.jhworkflow .work_panel .workarea .node_item{position:absolute;border:#27a solid 1px;border-radius:3px;display: table;transition: none;-webkit-transition:none;
     box-shadow:0px 0px 3px 1px rgba(0,0,0,0.3);overflow: hidden;z-index: 4;max-width: 600px;max-height: 600px;text-shadow:none;}
 .jhworkflow .work_panel .workarea .node_item .glyphicon{cursor: pointer;top: 0;bottom:0;left: 5px;position: absolute;margin: auto;z-index:2;
     width:18px;height:18px;background-image:url(../images/workflow_icon.png);background-repeat: no-repeat;}
